@@ -1,0 +1,96 @@
+<!-- ======================= -->
+<!-- 💰 TOTAL COSTS SUMMARY - IMPROVED -->
+<!-- ======================= -->
+<div class="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl shadow-lg p-4 md:p-6 mb-6 text-white">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 md:gap-6 mb-4 md:mb-6">
+        <!-- العنوان والوصف -->
+        <div class="text-center lg:text-right lg:flex-1">
+            <h3 class="text-lg md:text-xl lg:text-2xl font-bold mb-2">💰 التكاليف الإجمالية للطلبيات</h3>
+            <p class="text-purple-100 text-xs md:text-sm lg:text-base">مجموع تكاليف المشتريات والنقل لجميع الطلبيات</p>
+        </div>
+        
+        <!-- البطاقات الإحصائية -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:flex-1 lg:max-w-2xl">
+            <!-- تكاليف المشتريات -->
+            <div class="bg-white bg-opacity-20 rounded-xl p-3 md:p-4 text-center backdrop-blur-sm hover:bg-opacity-30 transition-all duration-300">
+                <div class="text-lg md:text-xl lg:text-2xl font-bold mb-1" id="totalPurchasesCost">0 دج</div>
+                <div class="text-purple-100 text-xs md:text-sm">تكاليف المشتريات</div>
+                <div class="text-purple-200 text-xs mt-1" id="purchasesPercentage">0%</div>
+            </div>
+            
+            <!-- تكاليف النقل -->
+            <div class="bg-white bg-opacity-20 rounded-xl p-3 md:p-4 text-center backdrop-blur-sm hover:bg-opacity-30 transition-all duration-300">
+                <div class="text-lg md:text-xl lg:text-2xl font-bold mb-1" id="totalTransportCost">0 دج</div>
+                <div class="text-purple-100 text-xs md:text-sm">تكاليف النقل</div>
+                <div class="text-purple-200 text-xs mt-1" id="transportPercentage">0%</div>
+            </div>
+            
+            <!-- التكلفة الإجمالية -->
+            <div class="bg-white bg-opacity-30 rounded-xl p-3 md:p-4 text-center backdrop-blur-sm border-2 border-white border-opacity-30 hover:bg-opacity-40 transition-all duration-300 col-span-2 lg:col-span-1">
+                <div class="text-lg md:text-xl lg:text-2xl font-bold mb-1" id="totalCombinedCost">0 دج</div>
+                <div class="text-purple-100 text-xs md:text-sm font-semibold">التكلفة الإجمالية</div>
+                <div class="text-purple-200 text-xs mt-1" id="averageCostPerOrder">0 دج/طلب</div>
+            </div>
+            
+            <!-- تقرير التكاليف التفصيلي -->
+            <div class="bg-white bg-opacity-20 rounded-xl p-3 md:p-4 text-center backdrop-blur-sm cursor-pointer hover:bg-opacity-30 transition-all duration-300 col-span-2 lg:col-span-1"
+                 onclick="showCostsReportModal()">
+                <div class="text-xl md:text-2xl mb-1 md:mb-2">📊</div>
+                <div class="text-purple-100 text-sm font-semibold">تقرير التكاليف</div>
+                <div class="text-purple-200 text-xs mt-1">انقر للعرض</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- شريط التقدم المرئي -->
+    <div class="mt-4">
+        <div class="flex justify-between text-xs text-purple-200 mb-2">
+            <span class="text-xs">المشتريات</span>
+            <span class="text-xs" id="costDistribution">0% مشتريات | 0% نقل</span>
+            <span class="text-xs">النقل</span>
+        </div>
+        <div class="bg-white bg-opacity-20 rounded-full h-2 md:h-3 backdrop-blur-sm relative overflow-hidden">
+            <div class="absolute top-0 left-0 h-2 md:h-3 rounded-full bg-gradient-to-r from-green-400 to-cyan-400 transition-all duration-1000" 
+                 id="costProgressBar" style="width: 0%"></div>
+            <div class="absolute top-0 left-0 h-2 md:h-3 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 transition-all duration-1000" 
+                 id="transportProgressBar" style="width: 0%"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// تحسينات الجوال لقسم التكاليف
+function initializeMobileCosts() {
+    const costCards = document.querySelectorAll('.bg-white.bg-opacity-20');
+    
+    costCards.forEach(card => {
+        card.addEventListener('touchstart', function() {
+            this.style.transform = 'scale(0.98)';
+        });
+        
+        card.addEventListener('touchend', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+    
+    // تحسين النصوص للشاشات الصغيرة
+    function adjustCostTexts() {
+        const width = window.innerWidth;
+        const costDistribution = document.getElementById('costDistribution');
+        
+        if (width < 480 && costDistribution) {
+            const text = costDistribution.textContent;
+            costDistribution.textContent = text.replace('مشتريات | نقل', 'مش | نقل');
+        }
+    }
+    
+    // تعديل النصوص عند تحميل الصفحة وتغيير الحجم
+    window.addEventListener('load', adjustCostTexts);
+    window.addEventListener('resize', adjustCostTexts);
+}
+
+// تهيئة تحسينات الجوال للتكاليف
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMobileCosts();
+});
+</script>

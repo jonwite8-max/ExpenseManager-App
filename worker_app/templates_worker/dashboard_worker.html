@@ -1,0 +1,147 @@
+﻿{% extends "base_worker.html" %}
+
+{% block content %}
+<div class="worker-app">
+    <!-- بطاقات سريعة -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-blue-100 rounded-lg">
+                    <i class="fas fa-box text-blue-600"></i>
+                </div>
+                <div class="mr-3">
+                    <p class="text-sm text-gray-600">الطلبيات النشطة</p>
+                    <p class="text-xl font-bold text-gray-900">{{ orders|length }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-green-100 rounded-lg">
+                    <i class="fas fa-bell text-green-600"></i>
+                </div>
+                <div class="mr-3">
+                    <p class="text-sm text-gray-600">إشعارات جديدة</p>
+                    <p class="text-xl font-bold text-gray-900">{{ notifications|length }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-yellow-100 rounded-lg">
+                    <i class="fas fa-money-bill-wave text-yellow-600"></i>
+                </div>
+                <div class="mr-3">
+                    <p class="text-sm text-gray-600">الراتب الحالي</p>
+                    <p class="text-xl font-bold text-gray-900">
+                        {{ "%.2f"|format(salary_info.current_salary) if salary_info else 0 }} دج
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-purple-100 rounded-lg">
+                    <i class="fas fa-clock text-purple-600"></i>
+                </div>
+                <div class="mr-3">
+                    <p class="text-sm text-gray-600">حالة اليوم</p>
+                    <p class="text-xl font-bold text-gray-900">
+                        {% if today_session and today_session.total_hours > 0 %}
+                        نشط
+                        {% else %}
+                        غير مسجل
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- زر الحضور -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="text-center">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">تسجيل الحضور</h3>
+            <button onclick="workerApp.checkIn()" 
+                    class="attendance-btn flex items-center justify-center space-x-2 space-x-reverse mx-auto">
+                <i class="fas fa-fingerprint"></i>
+                <span>تسجيل الحضور</span>
+            </button>
+            <p class="text-sm text-gray-600 mt-2">سيتم التحقق من موقعك تلقائياً</p>
+            
+            {% if today_session %}
+            <div id="attendance-status" class="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                <div>الحضور الصباحي: {{ today_session.check_in_morning.strftime('%H:%M') if today_session.check_in_morning else '--:--' }}</div>
+                <div>الانصراف الصباحي: {{ today_session.check_out_morning.strftime('%H:%M') if today_session.check_out_morning else '--:--' }}</div>
+                <div>الحضور المسائي: {{ today_session.check_in_afternoon.strftime('%H:%M') if today_session.check_in_afternoon else '--:--' }}</div>
+                <div>الانصراف المسائي: {{ today_session.check_out_afternoon.strftime('%H:%M') if today_session.check_out_afternoon else '--:--' }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- الإشعارات الحديثة -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">أحدث الإشعارات</h3>
+            <a href="{{ url_for('notifications') }}" class="text-blue-600 hover:text-blue-800 text-sm">
+                عرض الكل
+            </a>
+        </div>
+        
+        <div class="space-y-3">
+            {% for notification in notifications[:5] %}
+            <div class="notification-item {% if not notification.is_read %}unread{% endif %} p-3 rounded-lg border">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-medium text-gray-900">{{ notification.title }}</h4>
+                        <p class="text-sm text-gray-600 mt-1">{{ notification.message }}</p>
+                    </div>
+                    <span class="text-xs text-gray-500">{{ notification.created_at.strftime('%H:%M') }}</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-center py-4">لا توجد إشعارات جديدة</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- الطلبيات العاجلة -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">الطلبيات العاجلة</h3>
+            <a href="{{ url_for('orders') }}" class="text-blue-600 hover:text-blue-800 text-sm">
+                عرض الكل
+            </a>
+        </div>
+        
+        <div class="space-y-4">
+            {% for order in orders[:3] %}
+            <div class="order-card p-4" data-order="{{ order.id }}">
+                <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold text-gray-900">{{ order.customer_name }}</h4>
+                    <span class="text-sm text-gray-500">{{ order.assigned_date }}</span>
+                </div>
+                
+                <p class="text-sm text-gray-600 mb-3">{{ order.product }}</p>
+                
+                <div class="progress-bar mb-2">
+                    <div class="progress-fill progress-{% if order.progress_percentage < 30 %}low{% elif order.progress_percentage < 70 %}medium{% else %}high{% endif %}" 
+                         style="width: {{ order.progress_percentage }}%"></div>
+                </div>
+                
+                <div class="flex justify-between items-center text-sm">
+                    <span class="progress-text">{{ order.progress_percentage }}% مكتمل</span>
+                    <span class="text-orange-600">{{ order.days_remaining }} أيام متبقية</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-center py-4">لا توجد طلبيات معينة</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

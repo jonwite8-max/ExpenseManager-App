@@ -1,0 +1,83 @@
+﻿{% extends "base_worker.html" %}
+
+{% block content %}
+<div class="worker-app">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">الإشعارات</h1>
+        <div class="text-sm text-gray-600">
+            <i class="fas fa-bell ml-2"></i>
+            <span>إجمالي {{ notifications|length }} إشعار</span>
+        </div>
+    </div>
+
+    {% if notifications %}
+    <div class="space-y-4">
+        {% for notification in notifications %}
+        <div class="notification-item {% if not notification.is_read %}unread{% endif %} {{ 'notification-' + notification.notification_type }} 
+             bg-white rounded-lg shadow p-4 border-l-4" data-notification="{{ notification.id }}">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <div class="flex items-center mb-2">
+                        <span class="text-lg ml-2">
+                            {% if notification.notification_type == 'assignment' %}
+                            📋
+                            {% elif notification.notification_type == 'delay' %}
+                            ⚠️
+                            {% elif notification.notification_type == 'advance' %}
+                            💰
+                            {% elif notification.notification_type == 'salary_reminder' %}
+                            👷
+                            {% elif notification.notification_type == 'salary_paid' %}
+                            ✅
+                            {% else %}
+                            🔔
+                            {% endif %}
+                        </span>
+                        <h3 class="font-semibold text-gray-900">{{ notification.title }}</h3>
+                    </div>
+                    <p class="text-gray-600 mb-3">{{ notification.message }}</p>
+                    
+                    {% if notification.related_order_id %}
+                    <div class="flex items-center text-sm text-blue-600">
+                        <i class="fas fa-external-link-alt ml-1"></i>
+                        <span>الطلبية #{{ notification.related_order_id }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if notification.related_amount %}
+                    <div class="flex items-center text-sm text-green-600 mt-1">
+                        <i class="fas fa-coins ml-1"></i>
+                        <span>{{ "%.2f"|format(notification.related_amount) }} دج</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="flex flex-col items-end space-y-2">
+                    <span class="text-xs text-gray-500 whitespace-nowrap">
+                        {{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    </span>
+                    {% if not notification.is_read %}
+                    <button onclick="workerApp.markNotificationAsRead({{ notification.id }})" 
+                            class="bg-blue-100 text-blue-700 px-3 py-1 rounded text-sm hover:bg-blue-200 transition-colors">
+                        تم القراءة
+                    </button>
+                    {% else %}
+                    <span class="text-green-600 text-sm">
+                        <i class="fas fa-check ml-1"></i>
+                        مقروء
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <i class="fas fa-bell-slash text-6xl text-gray-300 mb-4"></i>
+        <h3 class="text-xl font-semibold text-gray-500 mb-2">لا توجد إشعارات</h3>
+        <p class="text-gray-400">سيظهر هنا إشعارات الطلبيات والرواتب الجديدة</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,115 @@
+<!-- ======================= -->
+<!-- 📋 HEADER SECTION -->
+<!-- ======================= -->
+<div class="max-w-full">
+  
+  <!-- ======================= -->
+  <!-- 📋 HEADER SECTION -->
+  <!-- ======================= -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-6">
+    <!-- Page Title -->
+    <div class="text-center md:text-right mb-4 md:mb-0">
+      <h2 class="text-2xl md:text-3xl font-bold text-gray-900">📦 الطلبيات — <span class="text-blue-700">SOFAZI</span></h2>
+      <p class="text-sm text-gray-500 mt-1">إدارة الطلبات، الفوترة، والسجل الداخلي.</p>
+    </div>
+
+    <!-- Filters & Actions -->
+    <div class="flex flex-col md:flex-row items-center gap-3 flex-wrap order-3 md:order-2">
+      <!-- Search Input -->
+      <div class="relative w-full md:w-72 mb-3 md:mb-0">
+        <input id="searchInput" type="text" placeholder="🔍 بحث بالاسم، الهاتف، الولاية، المنتج..." 
+               class="pl-10 pr-4 py-3 md:py-2 rounded-lg border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full text-sm md:text-base"
+               aria-label="بحث في الطلبيات">
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </span>
+      </div>
+
+      <div class="flex flex-wrap gap-2 w-full md:w-auto justify-center">
+        <!-- Status Filter -->
+        <select id="statusFilter" class="py-2 px-3 rounded-lg border border-gray-200 bg-white text-sm shadow-sm flex-1 md:flex-none min-w-[120px]" aria-label="تصفية حسب الحالة">
+          <option value="">كل الحالات</option>
+          {% for s in statuses %}
+            <option value="{{ s.name }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+
+        <!-- Worker Filter -->
+        <select id="workerFilter" class="py-2 px-3 rounded-lg border border-gray-200 bg-white text-sm shadow-sm flex-1 md:flex-none min-w-[120px]" aria-label="تصفية حسب العامل">
+          <option value="">كل العمال</option>
+          {% for worker in workers %}
+            <option value="{{ worker.id }}">{{ worker.name }}</option>
+          {% endfor %}
+        </select>
+
+        <!-- Health Filter -->
+        <select id="healthFilter" class="py-2 px-3 rounded-lg border border-gray-200 bg-white text-sm shadow-sm flex-1 md:flex-none min-w-[120px]" aria-label="تصفية حسب الصحة المالية">
+          <option value="">كل الطلبيات</option>
+          <option value="healthy">طلبيات سليمة</option>
+          <option value="debt">طلبيات بها ديون</option>
+          <option value="completed_with_debt">مكتملة مع ديون</option>
+        </select>
+
+        <!-- Show/Hide Paid Orders -->
+        <a href="{{ url_for('orders.orders', show_paid=not show_paid) }}" class="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm hover:bg-gray-50 transition-colors shadow-sm flex-1 md:flex-none justify-center min-h-[44px]" aria-label="{{ 'إخفاء المدفوعة' if show_paid else 'إظهار المدفوعة' }}">
+          <i class="fas {% if show_paid %}fa-eye-slash{% else %}fa-eye{% endif %}"></i>
+          <span class="hidden md:inline">{{ 'إخفاء المدفوعة' if show_paid else 'إظهار المدفوعة' }}</span>
+          <span class="md:hidden">{{ 'إخفاء' if show_paid else 'إظهار' }}</span>
+        </a>
+      </div>
+    </div>
+    
+    <!-- Add New Order Button -->
+    <div class="flex justify-center order-2 md:order-3 mb-4 md:mb-0">
+      <button id="btnAdd" class="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 md:px-6 py-3 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 w-full md:w-auto justify-center min-h-[44px]" 
+        onclick="showAddForm()"
+        aria-label="إضافة طلبية جديدة">
+        <i class="fa-solid fa-plus text-lg"></i> 
+        <span class="font-semibold text-sm md:text-base">إضافة طلبية جديدة</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// تحسينات الجوال للرأس
+function initializeMobileHeader() {
+    const searchInput = document.getElementById('searchInput');
+    const filters = document.querySelectorAll('select');
+    
+    // تحسين تجربة الإدخال في الجوال
+    if (searchInput) {
+        searchInput.addEventListener('focus', function() {
+            this.style.fontSize = '16px'; // منع التكبير في iOS
+        });
+    }
+    
+    // تحسينات اللمس للفلترات
+    filters.forEach(filter => {
+        filter.addEventListener('touchstart', function() {
+            this.style.backgroundColor = '#f9fafb';
+        });
+        
+        filter.addEventListener('change', function() {
+            this.style.backgroundColor = '';
+        });
+    });
+    
+    // تحسينات زر الإضافة
+    const addButton = document.getElementById('btnAdd');
+    if (addButton) {
+        addButton.addEventListener('touchstart', function() {
+            this.style.transform = 'scale(0.95)';
+        });
+        
+        addButton.addEventListener('touchend', function() {
+            this.style.transform = 'scale(1)';
+        });
+    }
+}
+
+// تهيئة تحسينات الجوال للرأس
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMobileHeader();
+});
+</script>

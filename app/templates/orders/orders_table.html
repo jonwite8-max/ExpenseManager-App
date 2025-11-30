@@ -1,0 +1,446 @@
+<!-- ======================= -->
+<!-- 📋 ORDERS TABLE -->
+<!-- ======================= -->
+<div class="bg-white rounded-2xl shadow-md overflow-hidden">
+    <!-- Desktop Table -->
+    <div class="hidden md:block overflow-x-auto">
+      <table class="w-full text-sm text-right">
+        <thead class="bg-gray-100 border-b">
+          <tr class="text-gray-700 font-medium">
+            <th class="p-3">#</th>
+            <th class="p-3">الاسم</th>
+            <th class="p-3">الهاتف</th>
+            <th class="p-3">الولاية</th>
+            <th class="p-3">المنتج</th>
+            <th class="p-3">الإجمالي</th>
+            <th class="p-3">المدفوع</th>
+            <th class="p-3">المتبقي</th>
+            <th class="p-3">الحالة</th>
+            <th class="p-3">الصحة المالية</th>
+            <th class="p-3">العمال</th>
+            <th class="p-3">الربحية</th>
+            <th class="p-3">العمليات</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTable">
+          {% for o in orders %}
+          <tr class="border-b hover:bg-gray-50 transition" 
+              data-order-id="{{ o.id }}"
+              data-status="{{ o.status.name if o.status else '' }}"
+              data-worker-ids="{{ o.assigned_workers|map(attribute='id')|join(',') }}"
+              data-health-status="{{ 'healthy' if o.total_related_debts == 0 else 'debt' }}"
+              data-search-index="{{ o.name.lower() }} {{ o.wilaya.lower() }} {{ o.product.lower() }} {{ o.phones[0].number if o.phones else '' }}">
+            <td class="p-3 text-gray-700">{{ o.id }}</td>
+            <td class="p-3 font-medium text-gray-900">{{ o.name }}</td>
+
+            <!-- Phone Cell -->
+            <td class="p-3">
+              {% if o.phones and o.phones|length > 0 %}
+                {% set phone = o.phones[0] %}
+                <div class="phone-display-container">
+                  <div class="phone-number-display cursor-pointer" onclick="togglePhoneOptions('{{ phone.number }}')" role="button" aria-label="خيارات الهاتف">
+                    {{ phone.number }}
+                    <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                  </div>
+                  
+                  <div id="phoneOptions-{{ phone.number|replace('+', '')|replace(' ', '') }}" 
+                       class="phone-options-popup hidden">
+                    <div class="flex gap-2 p-2 bg-white rounded-lg shadow-lg border">
+                      <a href="tel:{{ phone.number }}" class="phone-btn bg-green-500 text-white" aria-label="اتصال">
+                        <i class="fas fa-phone"></i>
+                      </a>
+                      <a href="https://wa.me/{{ phone.number|replace('+', '')|replace(' ', '') }}" 
+                         target="_blank" class="phone-btn bg-green-600 text-white" aria-label="واتساب">
+                        <i class="fab fa-whatsapp"></i>
+                      </a>
+                      <button onclick="copyPhoneNumber('{{ phone.number }}')" 
+                              class="phone-btn bg-blue-500 text-white" aria-label="نسخ الرقم">
+                        <i class="fas fa-copy"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              {% else %}
+                <span class="text-gray-400 text-xs">لا يوجد</span>
+              {% endif %}
+            </td>
+
+            <td class="p-3 text-gray-700">{{ o.wilaya }}</td>
+            <td class="p-3 text-gray-700">{{ o.product }}</td>
+            
+            <!-- Total Amount -->
+            <td class="p-3">
+              <div class="text-right">
+                <span class="font-bold text-lg text-purple-700">{{ "%.0f"|format(o.total) }}</span>
+                <span class="text-xs text-purple-600 block">دج</span>
+              </div>
+            </td>
+            
+            <!-- Paid Amount -->
+            <td class="p-3">
+              <div class="text-right">
+                <span class="font-bold text-lg text-green-600">{{ "%.0f"|format(o.paid) }}</span>
+                <span class="text-xs text-green-600 block">دج</span>
+              </div>
+            </td>
+
+            <td class="p-3 {% if o.remaining > 0 %}text-red-600{% else %}text-green-600{% endif %} font-semibold">
+              {{ "%.0f"|format(o.remaining) }} دج
+            </td>
+
+            <!-- Status -->
+            <td class="p-3">
+              {% if o.status %}
+                <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold"
+                      style="background: {{ o.status.color }}22; color: {{ o.status.color }}">
+                  {{ o.status.name }}
+                </span>
+              {% else %}
+                <span class="inline-block px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-700">بدون حالة</span>
+              {% endif %}
+            </td>
+
+            <!-- Health Status - النظام الجديد -->
+<td class="p-3">
+    {% if o.total_related_debts == 0 %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+            <i class="fas fa-check-circle ml-1"></i>
+            سليمة
+        </span>
+    {% else %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+            <i class="fas fa-exclamation-triangle ml-1"></i>
+            بها ديون ({{ "%.0f"|format(o.total_related_debts) }} دج)
+        </span>
+    {% endif %}
+</td>
+
+            <!-- Workers -->
+            <td class="p-3">
+              {% if o.assigned_workers %}
+                <div class="flex flex-wrap gap-1">
+                  {% for worker in o.assigned_workers %}
+                    <span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full" 
+                          data-worker-id="{{ worker.id }}">
+                      {{ worker.name }}
+                    </span>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <span class="text-gray-400 text-xs">غير معين</span>
+              {% endif %}
+            </td>
+
+            <!-- Profitability -->
+            <td class="p-3">
+              {% set profit_info = calculate_order_profitability(o.id) if calculate_order_profitability %}
+              {% if profit_info %}
+                <div class="flex items-center gap-2">
+                  <div class="w-16 bg-gray-200 rounded-full h-2">
+                    <div class="bg-{{ 'green' if profit_info.is_profitable else 'red' }}-500 h-2 rounded-full" 
+                         style="width: {{ profit_info.profit_percentage|abs|int }}%"></div>
+                  </div>
+                  <span class="text-xs {{ 'text-green-600' if profit_info.is_profitable else 'text-red-600' }}">
+                    {{ "%.1f"|format(profit_info.profit_percentage) }}%
+                  </span>
+                </div>
+              {% else %}
+                <span class="text-gray-400 text-sm">-</span>
+              {% endif %}
+            </td>
+
+            <!-- Actions -->
+            <td class="p-3">
+              <div class="flex gap-2 flex-wrap">
+                <!-- Details Button -->
+                <button class="details-btn text-purple-600 hover:text-purple-800 p-2 rounded-lg hover:bg-purple-50 transition-colors" 
+                        title="تفاصيل وتعيين"
+                        data-id="{{ o.id }}"
+                        onclick="showOrderDetails({{ o.id }})"
+                        aria-label="تفاصيل الطلبية">
+                  <i class="fa-solid fa-list text-lg"></i>
+                </button>
+
+                <!-- Edit Button -->
+                <button class="edit-btn text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors" 
+                        title="تعديل"
+                        data-id="{{ o.id }}"
+                        data-name="{{ o.name }}"
+                        data-wilaya="{{ o.wilaya }}"
+                        data-product="{{ o.product }}"
+                        data-paid="{{ '%.0f'|format(o.paid) }}"
+                        data-total="{{ '%.0f'|format(o.total) }}"
+                        data-note="{{ o.note }}"
+                        data-phones="{{ o.phones[0].number if o.phones else '' }}"
+                        data-status="{{ o.status.id if o.status else '' }}"
+                        onclick="editOrder(this)"
+                        aria-label="تعديل الطلبية">
+                  <i class="fa-solid fa-pen-to-square text-lg"></i>
+                </button>
+
+                <!-- History Button -->
+                <button class="history-btn text-gray-600 hover:text-gray-800 p-2 rounded-lg hover:bg-gray-50 transition-colors" 
+                        title="السجل والدفعات" 
+                        data-id="{{ o.id }}"
+                        onclick="showHistory({{ o.id }})"
+                        aria-label="سجل الطلبية">
+                  <i class="fa-solid fa-clock-rotate-left text-lg"></i>
+                </button>
+                
+                <!-- Attachments Button -->
+                <button class="attachments-btn text-purple-600 hover:text-purple-800 p-2 rounded-lg hover:bg-purple-50 transition-colors" 
+                        title="معاينة المرفقات"
+                        data-id="{{ o.id }}"
+                        onclick="showAttachments({{ o.id }})"
+                        aria-label="مرفقات الطلبية">
+                  <i class="fa-solid fa-paperclip text-lg"></i>
+                </button>
+
+                <!-- Payment Button -->
+                {% if o.remaining > 0 %}
+                <button class="payment-btn text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors" 
+                        title="إضافة دفعة" 
+                        data-id="{{ o.id }}" 
+                        data-remaining="{{ o.remaining }}"
+                        onclick="showPaymentModal({{ o.id }}, {{ o.remaining }})"
+                        aria-label="إضافة دفعة">
+                  <i class="fa-solid fa-money-bill-wave text-lg"></i>
+                </button>
+                {% endif %}
+
+                <!-- Delete Button -->
+                <a href="{{ url_for('orders.delete_order', id=o.id) }}"
+                   class="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors inline-block"
+                   title="حذف"
+                   onclick="return confirm('هل أنت متأكد من حذف هذه الطلبية؟');"
+                   aria-label="حذف الطلبية">
+                  <i class="fa-solid fa-trash text-lg"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="13" class="p-6 text-center text-gray-500">
+              <i class="fas fa-box-open text-4xl mb-3 text-gray-300"></i>
+              <p>لا توجد طلبيات بعد</p>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile Cards -->
+    <div class="block md:hidden space-y-3 p-3">
+      {% for o in orders %}
+      <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4 order-card" 
+           data-order-id="{{ o.id }}"
+           data-status="{{ o.status.name if o.status else '' }}"
+           data-worker-ids="{{ o.assigned_workers|map(attribute='id')|join(',') }}"
+           data-health-status="{{ 'healthy' if o.total_related_debts == 0 else 'debt' }}"
+           data-search-index="{{ o.name.lower() }} {{ o.wilaya.lower() }} {{ o.product.lower() }} {{ o.phones[0].number if o.phones else '' }}">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-start mb-3">
+          <div class="flex-1">
+            <h3 class="font-bold text-gray-900 text-base">#{{ o.id }} - {{ o.name }}</h3>
+            <p class="text-sm text-gray-600 truncate">{{ o.product }}</p>
+          </div>
+          <div class="flex flex-col items-end gap-1 ml-2">
+            {% if o.status %}
+            <span class="inline-block px-2 py-1 rounded-full text-xs font-semibold"
+                  style="background: {{ o.status.color }}22; color: {{ o.status.color }}">
+              {{ o.status.name }}
+            </span>
+            {% endif %}
+            <!-- Health Status Badge - النظام الجديد -->
+{% if o.total_related_debts == 0 %}
+<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 mt-1">
+    <i class="fas fa-check-circle ml-1"></i>
+    سليمة
+</span>
+{% else %}
+<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 mt-1">
+    <i class="fas fa-exclamation-triangle ml-1"></i>
+    بها ديون ({{ "%.0f"|format(o.total_related_debts) }} دج)
+</span>
+{% endif %}
+          </div>
+        </div>
+
+        <!-- Details -->
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <p class="text-xs text-gray-500">الولاية</p>
+            <p class="text-sm font-medium truncate">{{ o.wilaya }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500">الهاتف</p>
+            {% if o.phones and o.phones|length > 0 %}
+            <div class="flex items-center gap-1">
+              <p class="text-sm font-medium truncate">{{ o.phones[0].number }}</p>
+              <button onclick="toggleMobilePhoneOptions('{{ o.phones[0].number }}', {{ o.id }})" 
+                      class="text-blue-500 text-xs p-1">
+                <i class="fas fa-ellipsis-h"></i>
+              </button>
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-400">لا يوجد</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Financial -->
+        <div class="grid grid-cols-3 gap-2 mb-3 p-3 bg-gray-50 rounded-lg">
+          <div class="text-center">
+            <p class="text-xs text-gray-500">الإجمالي</p>
+            <p class="text-sm font-bold text-purple-700">{{ "%.0f"|format(o.total) }} دج</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xs text-gray-500">المدفوع</p>
+            <p class="text-sm font-bold text-green-600">{{ "%.0f"|format(o.paid) }} دج</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xs text-gray-500">المتبقي</p>
+            <p class="text-sm font-bold {% if o.remaining > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+              {{ "%.0f"|format(o.remaining) }} دج
+            </p>
+          </div>
+        </div>
+
+        <!-- Workers -->
+        <div class="mb-3">
+          <p class="text-xs text-gray-500 mb-1">العمال المعينين</p>
+          {% if o.assigned_workers %}
+          <div class="flex flex-wrap gap-1">
+            {% for worker in o.assigned_workers %}
+            <span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full truncate max-w-[120px]">
+              {{ worker.name }}
+            </span>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-400">غير معين</p>
+          {% endif %}
+        </div>
+
+        <!-- Profitability -->
+        <div class="mb-4">
+          <p class="text-xs text-gray-500 mb-1">الربحية</p>
+          {% set profit_info = calculate_order_profitability(o.id) if calculate_order_profitability %}
+          {% if profit_info %}
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-gray-200 rounded-full h-2">
+              <div class="bg-{{ 'green' if profit_info.is_profitable else 'red' }}-500 h-2 rounded-full" 
+                   style="width: {{ profit_info.profit_percentage|abs|int }}%"></div>
+            </div>
+            <span class="text-xs {{ 'text-green-600' if profit_info.is_profitable else 'text-red-600' }} min-w-[40px] text-left">
+              {{ "%.1f"|format(profit_info.profit_percentage) }}%
+            </span>
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-400">-</p>
+          {% endif %}
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-between items-center border-t pt-3">
+          <div class="flex gap-1">
+            <button onclick="showOrderDetails({{ o.id }})" 
+                    class="text-purple-600 p-2 rounded-lg hover:bg-purple-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    title="تفاصيل">
+              <i class="fa-solid fa-list"></i>
+            </button>
+            <button onclick="editMobileOrder({{ o.id }})" 
+                    class="text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    title="تعديل">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button onclick="showHistory({{ o.id }})" 
+                    class="text-gray-600 p-2 rounded-lg hover:bg-gray-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    title="السجل">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+            </button>
+          </div>
+          <div class="flex gap-1">
+            {% if o.remaining > 0 %}
+            <button onclick="showPaymentModal({{ o.id }}, {{ o.remaining }})" 
+                    class="text-green-600 p-2 rounded-lg hover:bg-green-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    title="دفعة">
+              <i class="fa-solid fa-money-bill-wave"></i>
+            </button>
+            {% endif %}
+            <a href="{{ url_for('orders.delete_order', id=o.id) }}"
+               class="text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+               onclick="return confirm('هل أنت متأكد من حذف هذه الطلبية؟');"
+               title="حذف">
+              <i class="fa-solid fa-trash"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="text-center text-gray-500 py-8">
+        <i class="fas fa-box-open text-4xl mb-3 text-gray-300"></i>
+        <p>لا توجد طلبيات بعد</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+// دالة لتحسين تجربة الجوال
+function initializeMobileTable() {
+    // تحسينات اللمس للبطاقات
+    const orderCards = document.querySelectorAll('.order-card');
+    
+    orderCards.forEach(card => {
+        card.addEventListener('touchstart', function() {
+            this.style.transform = 'scale(0.98)';
+        });
+        
+        card.addEventListener('touchend', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+    
+    // تحسينات الأزرار
+    const buttons = document.querySelectorAll('.order-card button, .order-card a');
+    buttons.forEach(button => {
+        button.addEventListener('touchstart', function() {
+            this.style.opacity = '0.7';
+        });
+        
+        button.addEventListener('touchend', function() {
+            this.style.opacity = '1';
+        });
+    });
+}
+
+// تهيئة تحسينات الجوال
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMobileTable();
+});
+
+// دالة محسنة لخيارات الهاتف في الجوال
+function toggleMobilePhoneOptions(phoneNumber, orderId) {
+    const modal = document.getElementById('mobilePhoneModal');
+    const callBtn = document.getElementById('mobileCallBtn');
+    const whatsappBtn = document.getElementById('mobileWhatsappBtn');
+    const copyBtn = document.getElementById('mobileCopyBtn');
+    
+    // تحديث الروابط
+    callBtn.href = `tel:${phoneNumber}`;
+    whatsappBtn.href = `https://wa.me/${phoneNumber.replace('+', '').replace(' ', '')}`;
+    
+    // تحديث حدث النسخ
+    copyBtn.onclick = function() {
+        copyPhoneNumber(phoneNumber);
+    };
+    
+    // إظهار النافذة
+    showModal('mobilePhoneModal');
+}
+</script>

@@ -1,0 +1,135 @@
+﻿{% extends "base_worker.html" %}
+
+{% block content %}
+<div class="worker-app">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">الراتب الشهري</h1>
+        <div class="text-sm text-gray-600">
+            <i class="fas fa-calendar ml-2"></i>
+            <span>{{ now.strftime('%Y-%m-%d') }}</span>
+        </div>
+    </div>
+
+    {% if salary_info %}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- بطاقة الراتب الإجمالي -->
+        <div class="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl p-6 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold">الراتب المستحق</h3>
+                <i class="fas fa-money-bill-wave text-2xl"></i>
+            </div>
+            <div class="text-3xl font-bold mb-2">{{ "%.2f"|format(salary_info.current_salary) }} دج</div>
+            <p class="text-green-100 text-sm">صافي الراتب الحالي</p>
+        </div>
+
+        <!-- بطاقة الراتب الأساسي -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center mb-4">
+                <div class="p-2 bg-blue-100 rounded-lg ml-3">
+                    <i class="fas fa-file-invoice-dollar text-blue-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900">الراتب الأساسي</h3>
+            </div>
+            <div class="text-2xl font-bold text-gray-900 mb-2">{{ "%.2f"|format(salary_info.base_salary) }} دج</div>
+            <div class="space-y-1 text-sm text-gray-600">
+                <div class="flex justify-between">
+                    <span>أيام العمل:</span>
+                    <span>{{ salary_info.work_days }} يوم</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>المكافآت:</span>
+                    <span class="text-green-600">{{ "%.2f"|format(salary_info.bonuses) }} دج</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- بطاقة الخصومات -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center mb-4">
+                <div class="p-2 bg-red-100 rounded-lg ml-3">
+                    <i class="fas fa-hand-holding-usd text-red-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900">الخصومات</h3>
+            </div>
+            <div class="text-2xl font-bold text-red-600 mb-2">{{ "%.2f"|format(salary_info.deductions) }} دج</div>
+            <div class="space-y-1 text-sm text-gray-600">
+                <div class="flex justify-between">
+                    <span>أيام الغياب:</span>
+                    <span class="text-red-600">{{ salary_info.absence_days }} يوم</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>الإجازات:</span>
+                    <span>{{ salary_info.vacation_days }} يوم</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تاريخ الراتب القادم -->
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <div class="flex items-center">
+            <i class="fas fa-clock text-yellow-600 text-xl ml-3"></i>
+            <div>
+                <h4 class="font-semibold text-yellow-800">موعد صرف الراتب القادم</h4>
+                <p class="text-yellow-700 text-sm">سيتم صرف الراتب في تاريخ {{ salary_info.next_salary_date }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- سجل الحضور -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">سجل الحضور لهذا الشهر</h3>
+        
+        {% if attendance_sessions %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-4 py-2 text-right text-sm font-medium text-gray-700">التاريخ</th>
+                        <th class="px-4 py-2 text-right text-sm font-medium text-gray-700">الحضور الصباحي</th>
+                        <th class="px-4 py-2 text-right text-sm font-medium text-gray-700">الانصراف الصباحي</th>
+                        <th class="px-4 py-2 text-right text-sm font-medium text-gray-700">الحضور المسائي</th>
+                        <th class="px-4 py-2 text-right text-sm font-medium text-gray-700">الانصراف المسائي</th>
+                        <th class="px-4 py-2 text-right text-sm font-medium text-gray-700">إجمالي الساعات</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for session in attendance_sessions %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm text-gray-900">{{ session.date.strftime('%Y-%m-%d') }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            {{ session.check_in_morning.strftime('%H:%M') if session.check_in_morning else '--:--' }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            {{ session.check_out_morning.strftime('%H:%M') if session.check_out_morning else '--:--' }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            {{ session.check_in_afternoon.strftime('%H:%M') if session.check_in_afternoon else '--:--' }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            {{ session.check_out_afternoon.strftime('%H:%M') if session.check_out_afternoon else '--:--' }}
+                        </td>
+                        <td class="px-4 py-3 text-sm font-medium {% if session.total_hours >= 8 %}text-green-600{% else %}text-orange-600{% endif %}">
+                            {{ "%.1f"|format(session.total_hours) }} ساعة
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <i class="fas fa-calendar-times text-4xl text-gray-300 mb-3"></i>
+            <p class="text-gray-500">لا توجد سجلات حضور لهذا الشهر</p>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <i class="fas fa-exclamation-triangle text-6xl text-gray-300 mb-4"></i>
+        <h3 class="text-xl font-semibold text-gray-500 mb-2">لا توجد معلومات عن الراتب</h3>
+        <p class="text-gray-400">تواصل مع الإدارة للحصول على معلومات الراتب</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

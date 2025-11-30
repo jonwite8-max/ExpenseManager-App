@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <!-- رأس الصفحة -->
+  <div class="mb-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">📋 سجل الأحداث</h1>
+        <p class="text-gray-600 mt-2">عرض كافة الأحداث والأنشطة في النظام - انقر على أي حدث للانتقال إليه</p>
+      </div>
+      <div class="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
+        <button onclick="exportActivity()" class="btn-success flex items-center justify-center">
+          <i class="fas fa-download ml-2"></i>
+          تصدير التقرير
+        </button>
+        <button onclick="refreshActivity()" class="btn-primary flex items-center justify-center">
+          <i class="fas fa-sync-alt ml-2"></i>
+          تحديث
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- بطاقة الفلاتر -->
+  <div class="card p-6 mb-6">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <h3 class="text-lg font-semibold text-gray-900">🔍 تصفية الأحداث</h3>
+      
+      <div class="flex flex-col sm:flex-row gap-4 flex-1 lg:justify-end">
+        <!-- فلتر المستخدم -->
+        <div class="flex-1 sm:flex-none">
+          <label class="block text-sm font-medium text-gray-700 mb-2">المستخدم</label>
+          <select id="user-filter" onchange="applyFilters()" class="form-select">
+            <option value="all" {% if user_filter == 'all' %}selected{% endif %}>جميع المستخدمين</option>
+            {% for user in users %}
+            <option value="{{ user }}" {% if user_filter == user %}selected{% endif %}>{{ user }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- فلتر الفترة -->
+        <div class="flex-1 sm:flex-none">
+          <label class="block text-sm font-medium text-gray-700 mb-2">الفترة</label>
+          <select id="period-filter" onchange="applyFilters()" class="form-select">
+            <option value="all" {% if period_filter == 'all' %}selected{% endif %}>كل الوقت</option>
+            <option value="today" {% if period_filter == 'today' %}selected{% endif %}>اليوم</option>
+            <option value="week" {% if period_filter == 'week' %}selected{% endif %}>هذا الأسبوع</option>
+            <option value="month" {% if period_filter == 'month' %}selected{% endif %}>هذا الشهر</option>
+          </select>
+        </div>
+
+        <!-- زر إعادة التعيين -->
+        <div class="flex-1 sm:flex-none flex items-end">
+          <button onclick="resetFilters()" class="btn-warning w-full sm:w-auto flex items-center justify-center">
+            <i class="fas fa-undo ml-2"></i>
+            إعادة التعيين
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="mt-6 pt-6 border-t border-gray-200">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="text-center p-3 bg-blue-50 rounded-lg">
+          <div class="text-lg font-bold text-blue-600">{{ activities|length }}</div>
+          <div class="text-xs text-blue-800">إجمالي الأحداث</div>
+        </div>
+        <div class="text-center p-3 bg-green-50 rounded-lg">
+          <div class="text-lg font-bold text-green-600" id="today-count">{{ today_count }}</div>
+          <div class="text-xs text-green-800">أحداث اليوم</div>
+        </div>
+        <div class="text-center p-3 bg-purple-50 rounded-lg">
+          <div class="text-lg font-bold text-purple-600">{{ users|length }}</div>
+          <div class="text-xs text-purple-800">مستخدمين نشطين</div>
+        </div>
+        <div class="text-center p-3 bg-orange-50 rounded-lg">
+          <div class="text-lg font-bold text-orange-600" id="orders-count">{{ orders_count }}</div>
+          <div class="text-xs text-orange-800">أحداث الطلبيات</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- قائمة الأحداث -->
+  <div class="card p-6">
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="text-xl font-bold text-gray-900">🕒 الأحداث المصفاة</h3>
+      <div class="flex items-center space-x-2 space-x-reverse text-sm text-gray-600">
+        <span>عرض</span>
+        <span class="font-bold text-blue-600" id="filtered-count">{{ activities|length }}</span>
+        <span>حدث</span>
+      </div>
+    </div>
+
+    {% if activities %}
+    <div class="space-y-4" id="activities-list">
+      {% for activity in activities %}
+      <div class="activity-item flex items-start p-4 {{ get_activity_bg(activity.activity_type) }} rounded-lg border {{ get_activity_border(activity.activity_type) }} hover:shadow-md transition-all duration-200 cursor-pointer"
+           onclick="navigateToActivity('{{ activity.activity_type }}', {{ activity.id }}, {{ activity.order_id or 'null' }})"
+           title="انقر للانتقال إلى {{ get_activity_type_arabic(activity.change_type) }}">
+        <!-- أيقونة النشاط -->
+        <div class="text-xl ml-4 mt-1 flex-shrink-0">
+          {{ get_activity_icon(activity.activity_type, activity.change_type) }}
+        </div>
+        
+        <!-- محتوى النشاط -->
+        <div class="flex-1 min-w-0">
+          <!-- العنوان والتفاصيل -->
+          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div class="flex-1">
+              <h4 class="font-semibold {{ get_activity_text_color(activity.activity_type) }} text-sm leading-relaxed">
+                {{ activity.details }}
+                <span class="inline-block ml-2 text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <i class="fas fa-external-link-alt"></i>
+                </span>
+              </h4>
+              
+              <!-- معلومات إضافية -->
+              <div class="flex flex-wrap items-center gap-4 mt-2">
+                {% if activity.order_id %}
+                <span class="inline-flex items-center text-xs {{ get_activity_badge_color(activity.activity_type) }} px-2 py-1 rounded-full">
+                  <i class="fas fa-hashtag ml-1 text-xs"></i>
+                  الطلبية #{{ activity.order_id }}
+                </span>
+                {% endif %}
+                
+                <span class="inline-flex items-center text-xs {{ get_type_badge_color(activity.change_type) }} px-2 py-1 rounded-full">
+                  {{ get_activity_type_arabic(activity.change_type) }}
+                </span>
+
+                {% if activity.amount and activity.amount > 0 %}
+                <span class="inline-flex items-center text-xs text-green-700 bg-green-100 px-2 py-1 rounded-full">
+                  <i class="fas fa-money-bill-wave ml-1 text-xs"></i>
+                  {{ activity.amount }} دج
+                </span>
+                {% endif %}
+
+                <!-- مؤشر النقر -->
+                <span class="inline-flex items-center text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  <i class="fas fa-mouse-pointer ml-1 text-xs"></i>
+                  انقر للانتقال
+                </span>
+              </div>
+            </div>
+            
+            <!-- المعلومات الجانبية -->
+            <div class="flex flex-col items-end text-right flex-shrink-0">
+              <div class="text-sm font-medium text-gray-900">
+                {{ activity.user }}
+              </div>
+              <div class="text-xs text-gray-500 mt-1">
+                {{ activity.timestamp.strftime('%Y-%m-%d') }}
+              </div>
+              <div class="text-xs text-gray-400">
+                {{ activity.timestamp.strftime('%H:%M') }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- سهم التنقل -->
+        <div class="mr-2 mt-1 text-gray-400 group-hover:text-blue-500 transition-colors">
+          <i class="fas fa-chevron-left"></i>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- الترقيم -->
+    <div class="mt-6 flex items-center justify-between">
+      <div class="text-sm text-gray-600">
+        عرض <span class="font-medium">{{ activities|length }}</span> من <span class="font-medium">{{ activities|length }}</span> حدث
+      </div>
+      
+      <div class="flex space-x-2 space-x-reverse">
+        <button class="px-3 py-1 border border-gray-300 rounded text-sm text-gray-600 hover:bg-gray-50">
+          السابق
+        </button>
+        <button class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+          1
+        </button>
+        <button class="px-3 py-1 border border-gray-300 rounded text-sm text-gray-600 hover:bg-gray-50">
+          التالي
+        </button>
+      </div>
+    </div>
+
+    {% else %}
+    <!-- حالة عدم وجود أحداث -->
+    <div class="text-center py-12">
+      <div class="text-4xl mb-4">📭</div>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">لا توجد أحداث</h3>
+      <p class="text-gray-600 mb-6">لم يتم العثور على أحداث تطابق معايير البحث الخاصة بك.</p>
+      <button onclick="resetFilters()" class="btn-primary">
+        <i class="fas fa-undo ml-2"></i>
+        عرض جميع الأحداث
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+  // دالة التنقل إلى الحدث
+  function navigateToActivity(activityType, activityId, orderId) {
+    let url = '';
+    
+    switch(activityType) {
+      case 'order':
+        if (orderId) {
+          url = `/orders#order-${orderId}`;
+        } else {
+          url = '/orders';
+        }
+        break;
+      
+      case 'worker':
+        url = `/workers#worker-${activityId}`;
+        break;
+      
+      case 'expense':
+        url = `/expenses#expense-${activityId}`;
+        break;
+      
+      case 'transport':
+        url = `/transport#transport-${activityId}`;
+        break;
+      
+      case 'debt':
+        url = `/debts#debt-${activityId}`;
+        break;
+      
+      default:
+        url = '/dashboard';
+    }
+    
+    // الانتقال إلى الصفحة المطلوبة
+    window.location.href = url;
+  }
+
+  // تطبيق الفلاتر
+  function applyFilters() {
+    const userFilter = document.getElementById('user-filter').value;
+    const periodFilter = document.getElementById('period-filter').value;
+    
+    const params = new URLSearchParams();
+    if (userFilter !== 'all') params.append('user', userFilter);
+    if (periodFilter !== 'all') params.append('period', periodFilter);
+    
+    window.location.href = '/activity?' + params.toString();
+  }
+  
+  // إعادة تعيين الفلاتر
+  function resetFilters() {
+    window.location.href = '/activity';
+  }
+  
+  // تحديث الصفحة
+  function refreshActivity() {
+    window.location.reload();
+  }
+  
+  // تصدير التقرير
+  function exportActivity() {
+    showToast('جاري تحضير التقرير للتحميل...', 'info');
+    setTimeout(() => {
+      const userFilter = document.getElementById('user-filter').value;
+      const periodFilter = document.getElementById('period-filter').value;
+      
+      let filename = 'تقرير_الأحداث';
+      if (userFilter !== 'all') filename += `_${userFilter}`;
+      if (periodFilter !== 'all') filename += `_${periodFilter}`;
+      
+      showToast(`تم تصدير التقرير: ${filename}.pdf`, 'success');
+    }, 1500);
+  }
+  
+  // دالة لعرض الرسائل
+  function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 left-4 z-50 p-4 rounded-lg shadow-lg transform transition-all duration-300 ${
+      type === 'success' ? 'bg-green-500 text-white' : 
+      type === 'error' ? 'bg-red-500 text-white' : 
+      'bg-blue-500 text-white'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.classList.add('opacity-100');
+    }, 100);
+    
+    setTimeout(() => {
+      toast.classList.remove('opacity-100');
+      toast.classList.add('opacity-0');
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 3000);
+  }
+
+  // إضافة تأثيرات التفاعل
+  document.addEventListener('DOMContentLoaded', function() {
+    const activityItems = document.querySelectorAll('.activity-item');
+    
+    activityItems.forEach(item => {
+      // إضافة تأثير عند المرور بالفأرة
+      item.addEventListener('mouseenter', function() {
+        this.style.transform = 'translateY(-2px)';
+        this.style.borderColor = '#3b82f6';
+      });
+      
+      item.addEventListener('mouseleave', function() {
+        this.style.transform = 'translateY(0)';
+        this.style.borderColor = '';
+      });
+      
+      // إضافة تأثير عند النقر
+      item.addEventListener('mousedown', function() {
+        this.style.transform = 'translateY(0)';
+        this.style.opacity = '0.8';
+      });
+      
+      item.addEventListener('mouseup', function() {
+        this.style.opacity = '1';
+      });
+    });
+  });
+</script>
+
+<!-- دوال المساعدة في القالب -->
+<style>
+  .activity-item {
+    transition: all 0.3s ease;
+    position: relative;
+  }
+  
+  .activity-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+  
+  .activity-item::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 0 8px 8px 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .activity-item:hover::after {
+    opacity: 1;
+  }
+  
+  .group:hover .group-hover\:opacity-100 {
+    opacity: 1;
+  }
+</style>
+{% endblock %}
+
+{% macro get_activity_bg(activity_type) %}
+  {% if activity_type == 'order' %}bg-blue-50
+  {% elif activity_type == 'worker' %}bg-green-50
+  {% elif activity_type == 'expense' %}bg-orange-50
+  {% elif activity_type == 'transport' %}bg-indigo-50
+  {% elif activity_type == 'debt' %}bg-red-50
+  {% else %}bg-gray-50
+  {% endif %}
+{% endmacro %}
+
+{% macro get_activity_border(activity_type) %}
+  {% if activity_type == 'order' %}border-blue-200
+  {% elif activity_type == 'worker' %}border-green-200
+  {% elif activity_type == 'expense' %}border-orange-200
+  {% elif activity_type == 'transport' %}border-indigo-200
+  {% elif activity_type == 'debt' %}border-red-200
+  {% else %}border-gray-200
+  {% endif %}
+{% endmacro %}
+
+{% macro get_activity_text_color(activity_type) %}
+  {% if activity_type == 'order' %}text-blue-800
+  {% elif activity_type == 'worker' %}text-green-800
+  {% elif activity_type == 'expense' %}text-orange-800
+  {% elif activity_type == 'transport' %}text-indigo-800
+  {% elif activity_type == 'debt' %}text-red-800
+  {% else %}text-gray-800
+  {% endif %}
+{% endmacro %}
+
+{% macro get_activity_badge_color(activity_type) %}
+  {% if activity_type == 'order' %}text-blue-700 bg-blue-100
+  {% elif activity_type == 'worker' %}text-green-700 bg-green-100
+  {% elif activity_type == 'expense' %}text-orange-700 bg-orange-100
+  {% elif activity_type == 'transport' %}text-indigo-700 bg-indigo-100
+  {% elif activity_type == 'debt' %}text-red-700 bg-red-100
+  {% else %}text-gray-700 bg-gray-100
+  {% endif %}
+{% endmacro %}
+
+{% macro get_type_badge_color(change_type) %}
+  {% if 'دفعة' in change_type %}text-green-700 bg-green-100
+  {% elif 'نقل' in change_type %}text-indigo-700 bg-indigo-100
+  {% elif 'مصروف' in change_type %}text-orange-700 bg-orange-100
+  {% elif 'طلبية' in change_type %}text-blue-700 bg-blue-100
+  {% elif 'عامل' in change_type %}text-teal-700 bg-teal-100
+  {% elif 'دين' in change_type %}text-red-700 bg-red-100
+  {% else %}text-purple-700 bg-purple-100
+  {% endif %}
+{% endmacro %}
+
+{% macro get_activity_icon(activity_type, change_type) %}
+  {% if activity_type == 'order' %}
+    {% if 'دفعة' in change_type %}💰
+    {% elif 'نقل' in change_type %}🚚
+    {% elif 'مصروف' in change_type %}🧾
+    {% else %}📦
+    {% endif %}
+  {% elif activity_type == 'worker' %}
+    👷
+  {% elif activity_type == 'expense' %}
+    💸
+  {% elif activity_type == 'transport' %}
+    🚛
+  {% elif activity_type == 'debt' %}
+    📋
+  {% else %}
+    ℹ️
+  {% endif %}
+{% endmacro %}
+
+{% macro get_activity_type_arabic(change_type) %}
+  {% if 'دفعة' in change_type %}دفعة مالية
+  {% elif 'نقل' in change_type %}عملية نقل
+  {% elif 'مصروف' in change_type %}مصروف
+  {% elif 'طلبية' in change_type %}طلبية
+  {% elif 'عامل' in change_type %}عامل
+  {% elif 'دين' in change_type %}دين
+  {% else %}{{ change_type }}
+  {% endif %}
+{% endmacro %}

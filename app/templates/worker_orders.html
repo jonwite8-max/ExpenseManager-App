@@ -1,0 +1,187 @@
+{% extends "base_worker.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- رأس الصفحة -->
+    <div class="mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">📦 الطلبيات المعينة</h1>
+                <p class="text-gray-600 dark:text-gray-300 mt-1 text-sm md:text-base">الطلبيات الموكلة إليك حالياً</p>
+            </div>
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs md:text-sm font-medium">
+                    {{ active_orders|length }} طلبية
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول الطلبيات - تصميم متجاوب -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <!-- للشاشات الكبيرة -->
+        <div class="hidden md:block overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            العميل
+                        </th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            الولاية
+                        </th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            المنتج
+                        </th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            المرفقات
+                        </th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            التقييم
+                        </th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            نوع التعيين
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-600">
+                    {% for order in active_orders %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">{{ order.name }}</div>
+                            <!-- تم إزالة رقم الهاتف -->
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900 dark:text-white">{{ order.wilaya }}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-gray-900 dark:text-white">{{ order.product }}</div>
+                            <!-- تم إزالة السعر -->
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if order.order_attachments %}
+                            <div class="flex flex-wrap gap-2">
+                                {% for attachment in order.order_attachments %}
+                                <a href="{{ url_for('download_attachment', attachment_id=attachment.id) }}" 
+                                   class="text-blue-600 hover:text-blue-800 text-sm flex items-center bg-blue-50 px-2 py-1 rounded">
+                                    <i class="fas fa-paperclip ml-1"></i>
+                                    ملف {{ loop.index }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span class="text-sm text-gray-500 dark:text-gray-400">لا توجد</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% set evaluation = order.worker_evaluations|selectattr('worker_id', 'equalto', worker.id)|first %}
+                            {% if evaluation %}
+                            <div class="flex items-center">
+                                <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                    {{ evaluation.total_score }}/10
+                                </span>
+                                {% if evaluation.bonus_amount > 0 %}
+                                <span class="mr-2 text-xs text-green-600">+{{ evaluation.bonus_amount }} دج</span>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <span class="text-sm text-gray-500 dark:text-gray-400">لم يتم التقييم بعد</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% set assignment = order.order_assignments|selectattr('worker_id', 'equalto', worker.id)|selectattr('is_active', 'equalto', true)|first %}
+                            {% if assignment %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium 
+                                {% if assignment.assignment_type == 'workshop' %}bg-blue-100 text-blue-800
+                                {% elif assignment.assignment_type == 'travel_installation' %}bg-purple-100 text-purple-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ 'ورشة عمل' if assignment.assignment_type == 'workshop' else 'سفر وتركيب' if assignment.assignment_type == 'travel_installation' else assignment.assignment_type }}
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center">
+                            <i class="fas fa-inbox text-3xl text-gray-400 mb-3"></i>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">لا توجد طلبيات</h3>
+                            <p class="text-gray-600 dark:text-gray-400">لا توجد طلبيات مخصصة لك حالياً</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- للشاشات الصغيرة -->
+        <div class="md:hidden">
+            {% for order in active_orders %}
+            <div class="border-b border-gray-200 dark:border-gray-600 p-4">
+                <div class="space-y-3">
+                    <!-- العميل -->
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white">{{ order.name }}</div>
+                            <!-- تم إزالة رقم الهاتف -->
+                        </div>
+                        <div class="text-sm text-gray-900 dark:text-white">{{ order.wilaya }}</div>
+                    </div>
+
+                    <!-- المنتج -->
+                    <div>
+                        <div class="text-sm text-gray-900 dark:text-white">{{ order.product }}</div>
+                        <!-- تم إزالة السعر -->
+                    </div>
+
+                    <!-- المرفقات -->
+                    <div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">المرفقات:</div>
+                        {% if order.order_attachments %}
+                        <div class="flex flex-wrap gap-1">
+                            {% for attachment in order.order_attachments %}
+                            <a href="{{ url_for('download_attachment', attachment_id=attachment.id) }}" 
+                               class="text-blue-600 hover:text-blue-800 text-xs flex items-center bg-blue-50 px-2 py-1 rounded">
+                                <i class="fas fa-paperclip ml-1"></i>
+                                ملف {{ loop.index }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <span class="text-xs text-gray-500 dark:text-gray-400">لا توجد</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- التقييم ونوع التعيين -->
+                    <div class="flex justify-between items-center">
+                        {% set evaluation = order.worker_evaluations|selectattr('worker_id', 'equalto', worker.id)|first %}
+                        <div>
+                            {% if evaluation %}
+                            <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                {{ evaluation.total_score }}/10
+                            </span>
+                            {% else %}
+                            <span class="text-xs text-gray-500 dark:text-gray-400">لم يتم التقييم</span>
+                            {% endif %}
+                        </div>
+                        
+                        {% set assignment = order.order_assignments|selectattr('worker_id', 'equalto', worker.id)|selectattr('is_active', 'equalto', true)|first %}
+                        <span class="px-2 py-1 rounded-full text-xs font-medium 
+                            {% if assignment.assignment_type == 'workshop' %}bg-blue-100 text-blue-800
+                            {% elif assignment.assignment_type == 'travel_installation' %}bg-purple-100 text-purple-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ 'ورشة عمل' if assignment.assignment_type == 'workshop' else 'سفر وتركيب' if assignment.assignment_type == 'travel_installation' else assignment.assignment_type }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="p-8 text-center">
+                <i class="fas fa-inbox text-3xl text-gray-400 mb-3"></i>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">لا توجد طلبيات</h3>
+                <p class="text-gray-600 dark:text-gray-400">لا توجد طلبيات مخصصة لك حالياً</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

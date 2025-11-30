@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <!-- رأس الصفحة المحسنة -->
+  <div class="mb-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">📊 لوحة التحكم</h1>
+        <p class="text-gray-600 dark:text-gray-300 mt-2">
+          مركز التحكم والإجراءات السريعة - 
+          <span id="live-time" class="text-blue-600 dark:text-blue-400 font-medium"></span>
+        </p>
+      </div>
+      <div class="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
+        <button onclick="refreshDashboard()" class="btn-primary flex items-center justify-center">
+          <i class="fas fa-sync-alt ml-2"></i>
+          تحديث البيانات
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🔄 قسم الإجراءات السريعة فقط -->
+  <div class="mb-8">
+    <div class="card p-4 sm:p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white">⚡ الإجراءات السريعة</h3>
+        <div class="flex items-center space-x-2 space-x-reverse">
+          <span class="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline">تحديث تلقائي</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="auto-refresh" class="sr-only peer" checked>
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- إضافة طلبية -->
+        <a href="/orders" class="group p-4 border-2 border-dashed border-blue-200 dark:border-blue-700 rounded-xl hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300 text-center">
+          <div class="p-3 bg-blue-100 dark:bg-blue-800 rounded-full inline-block group-hover:bg-blue-200 dark:group-hover:bg-blue-700 transition-colors">
+            <i class="fas fa-plus text-blue-600 dark:text-blue-400 text-lg"></i>
+          </div>
+          <h4 class="font-semibold text-gray-900 dark:text-white mt-2 group-hover:text-blue-700 dark:group-hover:text-blue-300">إضافة طلبية</h4>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">إنشاء طلبية جديدة</p>
+        </a>
+
+        <!-- إضافة عامل -->
+        <a href="/workers" class="group p-4 border-2 border-dashed border-green-200 dark:border-green-700 rounded-xl hover:border-green-500 dark:hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-300 text-center">
+          <div class="p-3 bg-green-100 dark:bg-green-800 rounded-full inline-block group-hover:bg-green-200 dark:group-hover:bg-green-700 transition-colors">
+            <i class="fas fa-user-plus text-green-600 dark:text-green-400 text-lg"></i>
+          </div>
+          <h4 class="font-semibold text-gray-900 dark:text-white mt-2 group-hover:text-green-700 dark:group-hover:text-green-300">إضافة عامل</h4>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">تسجيل عامل جديد</p>
+        </a>
+
+        <!-- إضافة مصروف -->
+        <a href="/expenses" class="group p-4 border-2 border-dashed border-orange-200 dark:border-orange-700 rounded-xl hover:border-orange-500 dark:hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all duration-300 text-center">
+          <div class="p-3 bg-orange-100 dark:bg-orange-800 rounded-full inline-block group-hover:bg-orange-200 dark:group-hover:bg-orange-700 transition-colors">
+            <i class="fas fa-receipt text-orange-600 dark:text-orange-400 text-lg"></i>
+          </div>
+          <h4 class="font-semibold text-gray-900 dark:text-white mt-2 group-hover:text-orange-700 dark:group-hover:text-orange-300">إضافة مصروف</h4>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">تسجيل مصروف جديد</p>
+        </a>
+
+        <!-- إضافة دين -->
+        <a href="/debts" class="group p-4 border-2 border-dashed border-red-200 dark:border-red-700 rounded-xl hover:border-red-500 dark:hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300 text-center">
+          <div class="p-3 bg-red-100 dark:bg-red-800 rounded-full inline-block group-hover:bg-red-200 dark:group-hover:bg-red-700 transition-colors">
+            <i class="fas fa-file-invoice-dollar text-red-600 dark:text-red-400 text-lg"></i>
+          </div>
+          <h4 class="font-semibold text-gray-900 dark:text-white mt-2 group-hover:text-red-700 dark:group-hover:text-red-300">إضافة دين</h4>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">تسجيل دين جديد</p>
+        </a>
+
+        <!-- إضافة نقل -->
+        <a href="/transport" class="group p-4 border-2 border-dashed border-indigo-200 dark:border-indigo-700 rounded-xl hover:border-indigo-500 dark:hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all duration-300 text-center">
+          <div class="p-3 bg-indigo-100 dark:bg-indigo-800 rounded-full inline-block group-hover:bg-indigo-200 dark:group-hover:bg-indigo-700 transition-colors">
+            <i class="fas fa-truck text-indigo-600 dark:text-indigo-400 text-lg"></i>
+          </div>
+          <h4 class="font-semibold text-gray-900 dark:text-white mt-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300">إضافة نقل</h4>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">تسجيل عملية نقل</p>
+        </a>
+
+        <!-- التقارير -->
+        <a href="/dashboard" class="group p-4 border-2 border-dashed border-purple-200 dark:border-purple-700 rounded-xl hover:border-purple-500 dark:hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300 text-center">
+          <div class="p-3 bg-purple-100 dark:bg-purple-800 rounded-full inline-block group-hover:bg-purple-200 dark:group-hover:bg-purple-700 transition-colors">
+            <i class="fas fa-chart-bar text-purple-600 dark:text-purple-400 text-lg"></i>
+          </div>
+          <h4 class="font-semibold text-gray-900 dark:text-white mt-2 group-hover:text-purple-700 dark:group-hover:text-purple-300">التقارير</h4>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">عرض التقارير والإحصائيات</p>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- قسم الإحصائيات السريعة -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- طلبيات -->
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 bg-blue-100 dark:bg-blue-800 rounded-lg">
+          <i class="fas fa-box text-blue-600 dark:text-blue-400 text-xl"></i>
+        </div>
+        <div class="mr-4">
+          <h3 class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_orders }}</h3>
+          <p class="text-gray-600 dark:text-gray-400">إجمالي الطلبيات</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- عمال -->
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 bg-green-100 dark:bg-green-800 rounded-lg">
+          <i class="fas fa-users text-green-600 dark:text-green-400 text-xl"></i>
+        </div>
+        <div class="mr-4">
+          <h3 class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_workers }}</h3>
+          <p class="text-gray-600 dark:text-gray-400">عدد العمال</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ديون -->
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 bg-red-100 dark:bg-red-800 rounded-lg">
+          <i class="fas fa-file-invoice-dollar text-red-600 dark:text-red-400 text-xl"></i>
+        </div>
+        <div class="mr-4">
+          <h3 class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_debts }}</h3>
+          <p class="text-gray-600 dark:text-gray-400">الديون المستحقة</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- مصروفات -->
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 bg-orange-100 dark:bg-orange-800 rounded-lg">
+          <i class="fas fa-receipt text-orange-600 dark:text-orange-400 text-xl"></i>
+        </div>
+        <div class="mr-4">
+          <h3 class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_expenses }}</h3>
+          <p class="text-gray-600 dark:text-gray-400">إجمالي المصروفات</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- النشاطات الحديثة -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div class="card p-6">
+      <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">📈 النشاطات الحديثة</h3>
+      <div class="space-y-4 max-h-96 overflow-y-auto">
+        {% for activity in recent_activities %}
+        <div class="flex items-start space-x-3 space-x-reverse p-3 rounded-lg {{ activity.classes.bg }} border {{ activity.classes.border }}">
+          <div class="flex-shrink-0 mt-1 {{ activity.classes.icon }}">
+            {{ activity.icon }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-medium {{ activity.classes.text }}">{{ activity.title }}</p>
+              <span class="text-xs {{ activity.classes.badge }} px-2 py-1 rounded-full">{{ activity.category }}</span>
+            </div>
+            <p class="text-sm {{ activity.classes.desc }} mt-1">{{ activity.description }}</p>
+            <div class="flex items-center justify-between mt-2">
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ activity.user }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ activity.time }}</span>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+          <i class="fas fa-inbox text-4xl mb-2"></i>
+          <p>لا توجد نشاطات حديثة</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- قسم المهام السريعة -->
+    <div class="card p-6">
+      <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">🎯 المهام السريعة</h3>
+      <div class="space-y-4">
+        <a href="/tasks" class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <div class="flex items-center">
+            <div class="p-2 bg-blue-100 dark:bg-blue-800 rounded-lg ml-3">
+              <i class="fas fa-tasks text-blue-600 dark:text-blue-400"></i>
+            </div>
+            <span class="text-gray-900 dark:text-white">عرض جميع المهام</span>
+          </div>
+          <i class="fas fa-chevron-left text-gray-400"></i>
+        </a>
+
+        <a href="/orders?filter=new" class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <div class="flex items-center">
+            <div class="p-2 bg-green-100 dark:bg-green-800 rounded-lg ml-3">
+              <i class="fas fa-plus-circle text-green-600 dark:text-green-400"></i>
+            </div>
+            <span class="text-gray-900 dark:text-white">طلبيات جديدة</span>
+          </div>
+          <i class="fas fa-chevron-left text-gray-400"></i>
+        </a>
+
+        <a href="/debts?filter=unpaid" class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <div class="flex items-center">
+            <div class="p-2 bg-red-100 dark:bg-red-800 rounded-lg ml-3">
+              <i class="fas fa-exclamation-triangle text-red-600 dark:text-red-400"></i>
+            </div>
+            <span class="text-gray-900 dark:text-white">ديون متأخرة</span>
+          </div>
+          <i class="fas fa-chevron-left text-gray-400"></i>
+        </a>
+
+        <a href="/workers?filter=active" class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <div class="flex items-center">
+            <div class="p-2 bg-purple-100 dark:bg-purple-800 rounded-lg ml-3">
+              <i class="fas fa-user-check text-purple-600 dark:text-purple-400"></i>
+            </div>
+            <span class="text-gray-900 dark:text-white">العمال النشطين</span>
+          </div>
+          <i class="fas fa-chevron-left text-gray-400"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript المحسن -->
+<script>
+  // متغيرات عامة
+  let autoRefreshInterval;
+  let isAutoRefreshEnabled = true;
+  
+  // تحديث الوقت الحي بشكل محسن
+  function updateLiveTime() {
+    const now = new Date();
+    
+    // تنسيق الوقت بشكل أفضل
+    const timeString = now.toLocaleDateString('ar-EG', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }) + ' - ' + now.toLocaleTimeString('ar-EG', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+    
+    const timeElement = document.getElementById('live-time');
+    if (timeElement) {
+      timeElement.textContent = timeString;
+    }
+  }
+
+  // تحديث جميع البيانات
+  async function refreshDashboard() {
+    try {
+      showLoadingState();
+      
+      // إعادة تحميل الصفحة للحصول على أحدث البيانات
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error refreshing dashboard:', error);
+      showToast('حدث خطأ أثناء تحديث البيانات', 'error');
+      hideLoadingState();
+    }
+  }
+
+  // إظهار/إخفاء حالة التحميل
+  function showLoadingState() {
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+      card.classList.add('opacity-50', 'pointer-events-none');
+    });
+  }
+
+  function hideLoadingState() {
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+      card.classList.remove('opacity-50', 'pointer-events-none');
+    });
+  }
+
+  // إدارة التحديث التلقائي
+  function setupAutoRefresh() {
+    const autoRefreshToggle = document.getElementById('auto-refresh');
+    
+    if (autoRefreshToggle) {
+      autoRefreshToggle.addEventListener('change', function() {
+        isAutoRefreshEnabled = this.checked;
+        
+        if (isAutoRefreshEnabled) {
+          startAutoRefresh();
+          showToast('تم تفعيل التحديث التلقائي', 'success');
+        } else {
+          stopAutoRefresh();
+          showToast('تم إيقاف التحديث التلقائي', 'info');
+        }
+      });
+      
+      if (isAutoRefreshEnabled) {
+        startAutoRefresh();
+      }
+    }
+  }
+
+  function startAutoRefresh() {
+    autoRefreshInterval = setInterval(refreshDashboard, 30000); // كل 30 ثانية
+  }
+
+  function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+    }
+  }
+
+  // رسائل Toast
+  function showToast(message, type = 'success') {
+    // إنشاء عنصر Toast
+    const toast = document.createElement('div');
+    const typeClasses = {
+      success: 'bg-green-500 text-white',
+      error: 'bg-red-500 text-white',
+      info: 'bg-blue-500 text-white',
+      warning: 'bg-yellow-500 text-white'
+    };
+    
+    toast.className = `fixed top-4 left-4 z-50 p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-0 opacity-0 ${typeClasses[type] || typeClasses.success}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // إظهار Toast
+    setTimeout(() => {
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+    }, 100);
+    
+    // إخفاء Toast بعد 3 ثوان
+    setTimeout(() => {
+      toast.classList.remove('opacity-100');
+      toast.classList.add('opacity-0');
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 3000);
+  }
+
+  // التهيئة عند تحميل الصفحة
+  document.addEventListener('DOMContentLoaded', function() {
+    // إعداد التحديث التلقائي
+    setupAutoRefresh();
+    
+    // تحديث الوقت الحي
+    updateLiveTime();
+    setInterval(updateLiveTime, 1000);
+  });
+
+  // تنظيف عند مغادرة الصفحة
+  window.addEventListener('beforeunload', function() {
+    stopAutoRefresh();
+  });
+</script>
+
+<style>
+  /* تحسينات للبطاقات */
+  .card {
+    transition: all 0.3s ease;
+  }
+  
+  .card:hover {
+    transform: translateY(-2px);
+  }
+
+  /* تخصيص شريط التمرير */
+  .overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+
+  .dark .overflow-y-auto::-webkit-scrollbar-track {
+    background: #374151;
+  }
+
+  .dark .overflow-y-auto::-webkit-scrollbar-thumb {
+    background: #6b7280;
+  }
+</style>
+{% endblock %}

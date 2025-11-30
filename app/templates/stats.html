@@ -1,0 +1,964 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <!-- رأس الصفحة -->
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">📊 لوحة الإحصائيات والتقارير المتقدمة</h1>
+    <p class="text-gray-600 mt-2">نظرة شاملة وتحليل مفصل لأداء النظام والعمليات</p>
+  </div>
+
+  <!-- فلترة التقارير -->
+  <div class="card p-6 mb-6">
+    <div class="flex flex-wrap gap-4 items-center">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">الفترة الزمنية</label>
+        <select id="timePeriod" class="select select-bordered">
+          <option value="today">اليوم</option>
+          <option value="week">هذا الأسبوع</option>
+          <option value="month" selected>هذا الشهر</option>
+          <option value="quarter">هذا الربع</option>
+          <option value="year">هذه السنة</option>
+          <option value="custom">مخصص</option>
+        </select>
+      </div>
+      <div id="customDateRange" class="hidden flex gap-2">
+        <input type="date" id="startDate" class="input input-bordered">
+        <input type="date" id="endDate" class="input input-bordered">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">نوع التقرير</label>
+        <select id="reportType" class="select select-bordered">
+          <option value="overview">نظرة عامة</option>
+          <option value="financial">مالي</option>
+          <option value="operations">تشغيلي</option>
+          <option value="performance">أداء العمال</option>
+          <option value="inventory">المخزون والمشتريات</option>
+        </select>
+      </div>
+      <button onclick="generateReport()" class="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+        🔄 توليد التقرير
+      </button>
+    </div>
+  </div>
+
+  <!-- بطاقات الإحصائيات الرئيسية المحسنة -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- الطلبيات -->
+    <div class="card p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-600">إجمالي الطلبيات</p>
+          <p class="text-2xl font-bold text-gray-900 mt-2" id="totalOrders">{{ total_orders }}</p>
+          <div class="flex items-center mt-2">
+            <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full" id="paidPercentage">
+              {% if total_orders > 0 %}
+              {{ "%.1f"|format((paid_orders / total_orders * 100)) }}%
+              {% else %}0%{% endif %} مدفوعة
+            </span>
+          </div>
+        </div>
+        <div class="p-3 bg-blue-100 rounded-full">
+          <i class="fas fa-box text-blue-600 text-xl"></i>
+        </div>
+      </div>
+      <div class="mt-4 text-xs text-gray-500">
+        <div class="flex justify-between">
+          <span>معلقة:</span>
+          <span id="pendingOrders">{{ pending_orders }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span>قيد التنفيذ:</span>
+          <span id="inProgressOrders">{{ in_progress_orders }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- العمال -->
+    <div class="card p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-600">إجمالي العمال</p>
+          <p class="text-2xl font-bold text-gray-900 mt-2" id="totalWorkers">{{ total_workers }}</p>
+          <div class="flex items-center mt-2">
+            <span class="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full" id="totalSalaries">
+              {{ "%.2f"|format(total_salaries) }} دج مستحقة
+            </span>
+          </div>
+        </div>
+        <div class="p-3 bg-green-100 rounded-full">
+          <i class="fas fa-users text-green-600 text-xl"></i>
+        </div>
+      </div>
+      <div class="mt-4 text-xs text-gray-500">
+        <div class="flex justify-between">
+          <span>نشطين:</span>
+          <span id="activeWorkers">{{ active_workers }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span>متوسط إنتاجية:</span>
+          <span id="avgEfficiency">{{ "%.1f"|format(average_worker_efficiency) }}%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- الديون -->
+    <div class="card p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-600">الديون المستحقة</p>
+          <p class="text-2xl font-bold text-gray-900 mt-2" id="totalDebts">{{ total_debts }}</p>
+          <div class="flex items-center mt-2">
+            <span class="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full" id="debtAmount">
+              {{ "%.2f"|format(total_debts_amount) }} دج
+            </span>
+          </div>
+        </div>
+        <div class="p-3 bg-red-100 rounded-full">
+          <i class="fas fa-money-bill-wave text-red-600 text-xl"></i>
+        </div>
+      </div>
+      <div class="mt-4 text-xs text-gray-500">
+        <div class="flex justify-between">
+          <span>معدل السداد:</span>
+          <span id="paymentRate">{{ "%.1f"|format(debt_payment_rate) }}%</span>
+        </div>
+        <div class="flex justify-between">
+          <span>متوسط الدين:</span>
+          <span id="avgDebt">{{ "%.2f"|format(average_debt) }} دج</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- الإيرادات -->
+    <div class="card p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-600">إجمالي الإيرادات</p>
+          <p class="text-2xl font-bold text-gray-900 mt-2" id="totalRevenue">{{ "%.2f"|format(total_orders_amount) }} دج</p>
+          <div class="flex items-center mt-2">
+            <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full" id="profitMargin">
+              {{ "%.1f"|format(profit_margin) }}% هامش ربح
+            </span>
+          </div>
+        </div>
+        <div class="p-3 bg-purple-100 rounded-full">
+          <i class="fas fa-chart-line text-purple-600 text-xl"></i>
+        </div>
+      </div>
+      <div class="mt-4 text-xs text-gray-500">
+        <div class="flex justify-between">
+          <span>صافي الربح:</span>
+          <span id="netProfit" class="{% if net_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            {{ "%.2f"|format(net_profit) }} دج
+          </span>
+        </div>
+        <div class="flex justify-between">
+          <span>متوسط الطلبية:</span>
+          <span id="avgOrder">{{ "%.2f"|format(average_order_value) }} دج</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- الشبكة الرئيسية المحسنة -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    
+    <!-- إحصائيات الطلبيات المتقدمة -->
+    <div class="card p-6">
+      <h3 class="text-xl font-bold text-gray-900 mb-6">📦 تحليل الطلبيات المتقدم</h3>
+      <div class="space-y-6">
+        <!-- توزيع الحالات -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">توزيع الطلبيات حسب الحالة</h4>
+          <div class="space-y-3" id="orderStatusDistribution">
+            {% for status in order_status_distribution %}
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-600">{{ status.name }}</span>
+              <div class="flex items-center gap-3">
+                <div class="w-32 bg-gray-200 rounded-full h-2">
+                  <div class="h-2 rounded-full" style="width: {{ status.percentage }}%; background-color: {{ status.color }}"></div>
+                </div>
+                <span class="text-sm font-medium text-gray-900">{{ status.count }}</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- الإيرادات والربحية -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">تحليل الإيرادات والربحية</h4>
+          <div class="grid grid-cols-2 gap-4" id="revenueAnalysis">
+            <div class="text-center p-4 bg-green-50 rounded-lg">
+              <div class="text-2xl font-bold text-green-600">{{ "%.2f"|format(total_orders_amount) }} دج</div>
+              <div class="text-sm text-green-700 mt-1">إجمالي قيمة الطلبيات</div>
+            </div>
+            <div class="text-center p-4 bg-blue-50 rounded-lg">
+              <div class="text-2xl font-bold text-blue-600" id="avgOrderValue">
+                {{ "%.2f"|format(average_order_value) }} دج
+              </div>
+              <div class="text-sm text-blue-700 mt-1">متوسط قيمة الطلبية</div>
+            </div>
+            <div class="text-center p-4 bg-purple-50 rounded-lg">
+              <div class="text-2xl font-bold text-purple-600">{{ "%.2f"|format(net_profit) }} دج</div>
+              <div class="text-sm text-purple-700 mt-1">صافي الربح</div>
+            </div>
+            <div class="text-center p-4 bg-orange-50 rounded-lg">
+              <div class="text-2xl font-bold text-orange-600">{{ "%.1f"|format(profit_margin) }}%</div>
+              <div class="text-sm text-orange-700 mt-1">هامش الربح</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- تحليل المنتجات -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">أفضل المنتجات أداءً</h4>
+          <div class="space-y-2" id="topProducts">
+            {% for product in top_products %}
+            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+              <span class="text-sm">{{ product.name }}</span>
+              <div class="flex gap-4 text-xs">
+                <span class="text-green-600">{{ product.orders }} طلبات</span>
+                <span class="text-blue-600">{{ "%.2f"|format(product.revenue) }} دج</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- إحصائيات العمال المتقدمة -->
+    <div class="card p-6">
+      <h3 class="text-xl font-bold text-gray-900 mb-6">👥 تحليل أداء العمال</h3>
+      <div class="space-y-6">
+        <!-- الرواتب والمستحقات -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">الرواتب والمستحقات</h4>
+          <div class="grid grid-cols-2 gap-4" id="salaryAnalysis">
+            <div class="text-center p-4 bg-purple-50 rounded-lg">
+              <div class="text-2xl font-bold text-purple-600">{{ "%.2f"|format(total_salaries) }} دج</div>
+              <div class="text-sm text-purple-700 mt-1">إجمالي المستحقات</div>
+            </div>
+            <div class="text-center p-4 bg-orange-50 rounded-lg">
+              <div class="text-2xl font-bold text-orange-600" id="avgSalary">
+                {{ "%.2f"|format(average_salary) }} دج
+              </div>
+              <div class="text-sm text-orange-700 mt-1">متوسط الراتب</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- الغياب والعمل الخارجي -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">الحضور والغياب</h4>
+          <div class="space-y-3" id="attendanceAnalysis">
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span class="text-gray-700">إجمالي أيام الغياب</span>
+              <span class="font-semibold text-red-600" id="totalAbsences">{{ total_absences }} يوم</span>
+            </div>
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span class="text-gray-700">إجمالي أيام العمل الخارجي</span>
+              <span class="font-semibold text-green-600" id="totalOutsideWork">{{ total_outside_work }} يوم</span>
+            </div>
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span class="text-gray-700">متوسط كفاءة العمال</span>
+              <span class="font-semibold text-blue-600">{{ "%.1f"|format(average_worker_efficiency) }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- أفضل العمال أداءً -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">أفضل العمال أداءً</h4>
+          <div class="space-y-2" id="topWorkers">
+            {% for worker in top_workers %}
+            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+              <span class="text-sm">{{ worker.name }}</span>
+              <div class="flex gap-4 text-xs">
+                <span class="text-green-600">{{ worker.completed_orders }} مكتمل</span>
+                <span class="text-blue-600">{{ "%.1f"|format(worker.efficiency) }}%</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- الشبكة الثانية المحسنة -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    
+    <!-- إحصائيات الديون المتقدمة -->
+    <div class="card p-6">
+      <h3 class="text-xl font-bold text-gray-900 mb-6">💰 تحليل الديون المتقدم</h3>
+      <div class="space-y-6">
+        <!-- توزيع الديون -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">توزيع الديون حسب النوع</h4>
+          <div class="space-y-3" id="debtDistribution">
+            {% for debt_type in debt_distribution %}
+            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: {{ debt_type.color }}20">
+              <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full" style="background-color: {{ debt_type.color }}"></div>
+                <span class="text-gray-700">{{ debt_type.name }}</span>
+              </div>
+              <div class="text-right">
+                <div class="font-semibold" style="color: {{ debt_type.color }}">{{ debt_type.count }}</div>
+                <div class="text-sm text-gray-500">{{ "%.2f"|format(debt_type.amount) }} دج</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- معدل السداد -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">معدل السداد</h4>
+          <div class="text-center p-6 bg-blue-50 rounded-lg">
+            <div class="text-3xl font-bold text-blue-600" id="debtPaymentRate">
+              {{ "%.1f"|format(debt_payment_rate) }}%
+            </div>
+            <div class="text-blue-700 mt-2">معدل سداد الديون</div>
+          </div>
+        </div>
+
+        <!-- تحليل المديونين -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">أكبر المديونين</h4>
+          <div class="space-y-2" id="topDebtors">
+            {% for debtor in top_debtors %}
+            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+              <span class="text-sm">{{ debtor.name }}</span>
+              <div class="flex gap-4 text-xs">
+                <span class="text-red-600">{{ "%.2f"|format(debtor.amount) }} دج</span>
+                <span class="text-orange-600">{{ debtor.days }} يوم</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- إحصائيات المصاريف والمشتريات المتقدمة -->
+    <div class="card p-6">
+      <h3 class="text-xl font-bold text-gray-900 mb-6">🛒 تحليل المصاريف والمشتريات</h3>
+      <div class="space-y-6">
+        <!-- أنواع المصاريف -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">توزيع المصاريف</h4>
+          <div class="grid grid-cols-2 gap-4" id="expenseDistribution">
+            <div class="text-center p-4 bg-blue-50 rounded-lg">
+              <div class="text-2xl font-bold text-blue-600" id="totalExpenses">{{ total_expenses_count }}</div>
+              <div class="text-sm text-blue-700 mt-1">إجمالي المصاريف</div>
+            </div>
+            <div class="text-center p-4 bg-green-50 rounded-lg">
+              <div class="text-2xl font-bold text-green-600" id="expensesAmount">{{ "%.2f"|format(total_expenses_amount) }} دج</div>
+              <div class="text-sm text-green-700 mt-1">قيمة المصاريف</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- حالة الدفع -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">حالة الدفع</h4>
+          <div class="space-y-3" id="paymentStatus">
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span class="text-gray-700">المصاريف المدفوعة</span>
+              <span class="font-semibold text-green-600" id="paidExpenses">{{ paid_expenses }}</span>
+            </div>
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span class="text-gray-700">المصاريف غير المدفوعة</span>
+              <span class="font-semibold text-red-600" id="unpaidExpenses">{{ unpaid_expenses }}</span>
+            </div>
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span class="text-gray-700">متوسط سعر الشراء</span>
+              <span class="font-semibold text-blue-600" id="avgPurchasePrice">{{ "%.2f"|format(average_purchase_price) }} دج</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- أفضل الموردين -->
+        <div>
+          <h4 class="font-semibold text-gray-900 mb-4">أفضل الموردين</h4>
+          <div class="space-y-2" id="topSuppliers">
+            {% for supplier in top_suppliers %}
+            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+              <span class="text-sm">{{ supplier.name }}</span>
+              <div class="flex gap-4 text-xs">
+                <span class="text-green-600">{{ supplier.purchases }} عملية</span>
+                <span class="text-blue-600">{{ "%.2f"|format(supplier.amount) }} دج</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- تقارير الأداء المالي -->
+  <div class="card p-6 mb-8">
+    <h3 class="text-xl font-bold text-gray-900 mb-6">💹 تقارير الأداء المالي</h3>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6" id="financialPerformance">
+      <!-- التدفق النقدي -->
+      <div class="text-center p-4 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl">
+        <i class="fas fa-money-bill-wave text-3xl mb-3"></i>
+        <div class="text-2xl font-bold" id="cashFlow">{{ "%.2f"|format(cash_flow) }} دج</div>
+        <div class="text-sm opacity-90">التدفق النقدي</div>
+      </div>
+
+      <!-- الإيرادات -->
+      <div class="text-center p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl">
+        <i class="fas fa-chart-line text-3xl mb-3"></i>
+        <div class="text-2xl font-bold" id="totalRevenueCard">{{ "%.2f"|format(total_orders_amount) }} دج</div>
+        <div class="text-sm opacity-90">إجمالي الإيرادات</div>
+      </div>
+
+      <!-- النفقات -->
+      <div class="text-center p-4 bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl">
+        <i class="fas fa-credit-card text-3xl mb-3"></i>
+        <div class="text-2xl font-bold" id="totalExpensesCard">{{ "%.2f"|format(total_expenses_amount) }} دج</div>
+        <div class="text-sm opacity-90">إجمالي النفقات</div>
+      </div>
+
+      <!-- العائد على الاستثمار -->
+      <div class="text-center p-4 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl">
+        <i class="fas fa-chart-pie text-3xl mb-3"></i>
+        <div class="text-2xl font-bold" id="roi">{{ "%.1f"|format(roi) }}%</div>
+        <div class="text-sm opacity-90">العائد على الاستثمار</div>
+      </div>
+    </div>
+
+    <!-- صافي الربح -->
+    <div class="mt-6 p-4 bg-gray-50 rounded-lg text-center">
+      <div class="text-lg font-semibold text-gray-700">صافي الربح</div>
+      <div class="text-3xl font-bold {% if net_profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}" id="netProfitCard">
+        {{ "%.2f"|format(net_profit) }} دج
+      </div>
+      <div class="text-sm text-gray-500 mt-1">هامش الربح: <span id="profitMarginCard">{{ "%.1f"|format(profit_margin) }}%</span></div>
+    </div>
+  </div>
+
+  <!-- تقارير النمو والمقارنات -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    
+    <!-- تقرير النمو -->
+    <div class="card p-6">
+      <h3 class="text-xl font-bold text-gray-900 mb-6">📈 تقرير النمو والمقارنات</h3>
+      <div class="space-y-6">
+        <div class="grid grid-cols-2 gap-4" id="growthMetrics">
+          <div class="text-center p-4 border border-gray-200 rounded-lg">
+            <div class="text-sm text-gray-600">نمو الطلبيات</div>
+            <div class="text-2xl font-bold {% if order_growth >= 0 %}text-green-600{% else %}text-red-600{% endif %}" id="orderGrowth">
+              {{ "%+.1f"|format(order_growth) }}%
+            </div>
+          </div>
+          <div class="text-center p-4 border border-gray-200 rounded-lg">
+            <div class="text-sm text-gray-600">نمو الإيرادات</div>
+            <div class="text-2xl font-bold {% if revenue_growth >= 0 %}text-green-600{% else %}text-red-600{% endif %}" id="revenueGrowth">
+              {{ "%+.1f"|format(revenue_growth) }}%
+            </div>
+          </div>
+          <div class="text-center p-4 border border-gray-200 rounded-lg">
+            <div class="text-sm text-gray-600">نمو العملاء</div>
+            <div class="text-2xl font-bold {% if customer_growth >= 0 %}text-green-600{% else %}text-red-600{% endif %}" id="customerGrowth">
+              {{ "%+.1f"|format(customer_growth) }}%
+            </div>
+          </div>
+          <div class="text-center p-4 border border-gray-200 rounded-lg">
+            <div class="text-sm text-gray-600">كفاءة التكلفة</div>
+            <div class="text-2xl font-bold {% if cost_efficiency >= 0 %}text-green-600{% else %}text-red-600{% endif %}" id="costEfficiency">
+              {{ "%+.1f"|format(cost_efficiency) }}%
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- مؤشرات الأداء الرئيسية -->
+    <div class="card p-6">
+      <h3 class="text-xl font-bold text-gray-900 mb-6">🎯 مؤشرات الأداء الرئيسية (KPI)</h3>
+      <div class="space-y-4" id="kpiMetrics">
+        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+          <span class="text-gray-700">متوسط وقت الإنجاز</span>
+          <span class="font-semibold text-blue-600" id="avgCompletionTime">{{ average_completion_time }} يوم</span>
+        </div>
+        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+          <span class="text-gray-700">معدل رضا العملاء</span>
+          <span class="font-semibold text-green-600" id="customerSatisfaction">{{ customer_satisfaction }}%</span>
+        </div>
+        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+          <span class="text-gray-700">كفاءة استخدام المواد</span>
+          <span class="font-semibold text-purple-600" id="materialEfficiency">{{ material_efficiency }}%</span>
+        </div>
+        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+          <span class="text-gray-700">معدل دوران المخزون</span>
+          <span class="font-semibold text-orange-600" id="inventoryTurnover">{{ inventory_turnover }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- التقارير التحليلية المتقدمة -->
+  <div class="card p-6 mb-8">
+    <h3 class="text-xl font-bold text-gray-900 mb-6">🔍 التقارير التحليلية المتقدمة</h3>
+    
+    <!-- تحليل الربحية حسب المنتج -->
+    <div class="mb-6">
+      <h4 class="font-semibold text-gray-900 mb-4">تحليل الربحية حسب المنتج</h4>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left" id="productProfitabilityTable">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-2">المنتج</th>
+              <th class="px-4 py-2">الطلبات</th>
+              <th class="px-4 py-2">الإيرادات</th>
+              <th class="px-4 py-2">التكاليف</th>
+              <th class="px-4 py-2">الربح</th>
+              <th class="px-4 py-2">هامش الربح</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in product_profitability %}
+            <tr class="border-b">
+              <td class="px-4 py-2">{{ product.name }}</td>
+              <td class="px-4 py-2">{{ product.orders }}</td>
+              <td class="px-4 py-2">{{ "%.2f"|format(product.revenue) }} دج</td>
+              <td class="px-4 py-2">{{ "%.2f"|format(product.cost) }} دج</td>
+              <td class="px-4 py-2 font-semibold {% if product.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                {{ "%.2f"|format(product.profit) }} دج
+              </td>
+              <td class="px-4 py-2 {% if product.margin >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                {{ "%.1f"|format(product.margin) }}%
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- تحليل التكاليف -->
+    <div>
+      <h4 class="font-semibold text-gray-900 mb-4">تحليل التكاليف حسب التصنيف</h4>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="costAnalysis">
+        {% for category in cost_analysis %}
+        <div class="text-center p-4 border rounded-lg">
+          <div class="text-lg font-bold">{{ category.name }}</div>
+          <div class="text-2xl font-bold text-red-600 mt-2">{{ "%.2f"|format(category.amount) }} دج</div>
+          <div class="text-sm text-gray-500 mt-1">{{ "%.1f"|format(category.percentage) }}% من إجمالي التكاليف</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- التنبؤات والتوقعات -->
+  <div class="card p-6">
+    <h3 class="text-xl font-bold text-gray-900 mb-6">🔮 التنبؤات والتوقعات</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="forecasts">
+      <div class="text-center p-4 bg-blue-50 rounded-lg">
+        <div class="text-2xl font-bold text-blue-600" id="revenueForecast">{{ "%.2f"|format(revenue_forecast) }} دج</div>
+        <div class="text-sm text-blue-700 mt-1">الإيرادات المتوقعة الشهر القادم</div>
+      </div>
+      <div class="text-center p-4 bg-green-50 rounded-lg">
+        <div class="text-2xl font-bold text-green-600" id="orderForecast">{{ order_forecast }}</div>
+        <div class="text-sm text-green-700 mt-1">الطلبيات المتوقعة الشهر القادم</div>
+      </div>
+      <div class="text-center p-4 bg-purple-50 rounded-lg">
+        <div class="text-2xl font-bold text-purple-600" id="expenseForecast">{{ "%.2f"|format(expense_forecast) }} دج</div>
+        <div class="text-sm text-purple-700 mt-1">النفقات المتوقعة الشهر القادم</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ملخص الأداء -->
+  <div class="card p-6 mt-8 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+    <h3 class="text-xl font-bold mb-4">📋 ملخص الأداء الشامل</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+      <div>
+        <div class="text-2xl font-bold">{{ total_orders }}</div>
+        <div class="text-sm opacity-90">إجمالي الطلبيات</div>
+      </div>
+      <div>
+        <div class="text-2xl font-bold">{{ "%.1f"|format(profit_margin) }}%</div>
+        <div class="text-sm opacity-90">هامش الربح</div>
+      </div>
+      <div>
+        <div class="text-2xl font-bold">{{ "%.1f"|format(average_worker_efficiency) }}%</div>
+        <div class="text-sm opacity-90">كفاءة العمال</div>
+      </div>
+      <div>
+        <div class="text-2xl font-bold">{{ "%.1f"|format(customer_satisfaction) }}%</div>
+        <div class="text-sm opacity-90">رضا العملاء</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ستايل إضافي -->
+<style>
+.card {
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar {
+  transition: width 0.5s ease-in-out;
+}
+
+.bg-gradient-to-br {
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* تخصيص الجداول */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  text-align: right;
+}
+
+th {
+  background-color: #f9fafb;
+  font-weight: 600;
+}
+
+/* تحسين التصميم للشاشات الصغيرة */
+@media (max-width: 768px) {
+  .grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* تأثيرات للبطاقات التفاعلية */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.stat-card:hover::before {
+  left: 100%;
+}
+
+/* تخصيص شريط التمرير */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+</style>
+
+<script>
+// كود JavaScript محسن
+document.addEventListener('DOMContentLoaded', function() {
+  initializeStatsPage();
+});
+
+function initializeStatsPage() {
+  // إظهار/إخفاء نطاق التاريخ المخصص
+  const timePeriodSelect = document.getElementById('timePeriod');
+  const customDateRange = document.getElementById('customDateRange');
+  
+  timePeriodSelect.addEventListener('change', function() {
+    if (this.value === 'custom') {
+      customDateRange.classList.remove('hidden');
+      initializeCustomDates();
+    } else {
+      customDateRange.classList.add('hidden');
+    }
+  });
+
+  // تحديث الإحصائيات تلقائياً
+  setInterval(updateLiveStats, 30000); // كل 30 ثانية
+  
+  // تحميل البيانات الأولية
+  loadInitialData();
+}
+
+function initializeCustomDates() {
+  const today = new Date().toISOString().split('T')[0];
+  const lastMonth = new Date();
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  
+  document.getElementById('endDate').value = today;
+  document.getElementById('startDate').value = lastMonth.toISOString().split('T')[0];
+}
+
+function generateReport() {
+  const timePeriod = document.getElementById('timePeriod').value;
+  const reportType = document.getElementById('reportType').value;
+  const startDate = document.getElementById('startDate').value;
+  const endDate = document.getElementById('endDate').value;
+  
+  showLoading();
+  
+  const params = new URLSearchParams({
+    period: timePeriod,
+    type: reportType
+  });
+  
+  if (timePeriod === 'custom' && startDate && endDate) {
+    params.append('start_date', startDate);
+    params.append('end_date', endDate);
+  }
+  
+  fetch(`/api/stats/generate?${params.toString()}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        updateStatsDisplay(data.stats);
+        showNotification('تم تحديث التقرير بنجاح', 'success');
+      } else {
+        showNotification('حدث خطأ في توليد التقرير', 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error generating report:', error);
+      showNotification('حدث خطأ في الاتصال', 'error');
+    })
+    .finally(() => {
+      hideLoading();
+    });
+}
+
+function updateLiveStats() {
+  fetch('/api/stats/live')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        updateStatsDisplay(data.stats, true);
+      }
+    })
+    .catch(error => console.error('Error updating live stats:', error));
+}
+
+function updateStatsDisplay(stats, isLiveUpdate = false) {
+  if (!stats) return;
+
+  // تحديث البطاقات الرئيسية
+  if (stats.total_orders !== undefined) {
+    document.getElementById('totalOrders').textContent = stats.total_orders;
+  }
+  if (stats.paid_orders !== undefined && stats.total_orders !== undefined) {
+    const percentage = stats.total_orders > 0 ? (stats.paid_orders / stats.total_orders * 100) : 0;
+    document.getElementById('paidPercentage').textContent = `${percentage.toFixed(1)}% مدفوعة`;
+  }
+  // ... تحديث جميع العناصر الأخرى بنفس الطريقة
+
+  if (isLiveUpdate) {
+    highlightChanges();
+  }
+}
+
+function highlightChanges() {
+  const elements = document.querySelectorAll('[id]');
+  elements.forEach(element => {
+    element.classList.add('highlight-change');
+    setTimeout(() => {
+      element.classList.remove('highlight-change');
+    }, 2000);
+  });
+}
+
+function loadInitialData() {
+  // يمكن تحميل بيانات إضافية هنا إذا لزم الأمر
+  console.log('تحميل البيانات الأولية...');
+}
+
+function showLoading() {
+  // إظهار مؤشر التحميل
+  const loadingElement = document.createElement('div');
+  loadingElement.id = 'loadingOverlay';
+  loadingElement.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+  loadingElement.innerHTML = `
+    <div class="bg-white p-6 rounded-lg shadow-xl">
+      <div class="flex items-center gap-3">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span>جاري تحميل البيانات...</span>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(loadingElement);
+}
+
+function hideLoading() {
+  const loadingElement = document.getElementById('loadingOverlay');
+  if (loadingElement) {
+    loadingElement.remove();
+  }
+}
+
+function showNotification(message, type = 'info') {
+  const notification = document.createElement('div');
+  const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+  
+  notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300`;
+  notification.textContent = message;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.classList.remove('translate-x-full');
+  }, 100);
+  
+  setTimeout(() => {
+    notification.classList.add('translate-x-full');
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
+  }, 3000);
+}
+
+function exportReport(format) {
+  const timePeriod = document.getElementById('timePeriod').value;
+  const reportType = document.getElementById('reportType').value;
+  
+  showLoading();
+  
+  fetch(`/api/stats/export?format=${format}&period=${timePeriod}&type=${reportType}`)
+    .then(response => {
+      if (!response.ok) throw new Error('Network error');
+      return response.blob();
+    })
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `التقرير_${new Date().toISOString().split('T')[0]}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      showNotification('تم تصدير التقرير بنجاح', 'success');
+    })
+    .catch(error => {
+      console.error('Export error:', error);
+      showNotification('حدث خطأ في تصدير التقرير', 'error');
+    })
+    .finally(() => {
+      hideLoading();
+    });
+}
+
+function printReport() {
+  window.print();
+}
+
+// إضافة تأثيرات CSS ديناميكية
+const style = document.createElement('style');
+style.textContent = `
+  .highlight-change {
+    animation: highlight 2s ease;
+  }
+  
+  @keyframes highlight {
+    0% { background-color: transparent; }
+    50% { background-color: #fef3c7; }
+    100% { background-color: transparent; }
+  }
+  
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    
+    .card {
+      break-inside: avoid;
+    }
+    
+    body {
+      font-size: 12pt;
+    }
+  }
+`;
+document.head.appendChild(style);
+</script>
+
+<!-- أزرار الإجراءات -->
+<div class="fixed bottom-6 left-6 flex gap-3 no-print">
+  <button onclick="printReport()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+    <i class="fas fa-print"></i>
+    طباعة التقرير
+  </button>
+  <div class="relative group">
+    <button class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+      <i class="fas fa-download"></i>
+      تصدير التقرير
+    </button>
+    <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block">
+      <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-40">
+        <button onclick="exportReport('pdf')" class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded flex items-center gap-2">
+          <i class="fas fa-file-pdf text-red-500"></i>
+          PDF
+        </button>
+        <button onclick="exportReport('excel')" class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded flex items-center gap-2">
+          <i class="fas fa-file-excel text-green-500"></i>
+          Excel
+        </button>
+        <button onclick="exportReport('csv')" class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded flex items-center gap-2">
+          <i class="fas fa-file-csv text-blue-500"></i>
+          CSV
+        </button>
+      </div>
+    </div>
+  </div>
+  <button onclick="updateLiveStats()" class="bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+    <i class="fas fa-sync-alt"></i>
+    تحديث الآن
+  </button>
+</div>
+
+<!-- تذييل الصفحة -->
+<div class="mt-8 text-center text-gray-500 text-sm no-print">
+  <p>آخر تحديث: <span id="lastUpdateTime">{{ now.strftime('%Y-%m-%d %H:%M') }}</span></p>
+  <p class="mt-2">جميع البيانات مقدمة حسب آخر المعلومات المتاحة في النظام</p>
+</div>
+{% endblock %}

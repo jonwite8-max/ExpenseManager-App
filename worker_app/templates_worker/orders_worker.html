@@ -1,0 +1,153 @@
+﻿{% extends "base_worker.html" %}
+
+{% block content %}
+<div class="worker-app">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">الطلبيات المعينة</h1>
+        <div class="text-sm text-gray-600">
+            <i class="fas fa-filter ml-2"></i>
+            <span>عرض {{ orders|length }} طلبية</span>
+        </div>
+    </div>
+
+    {% if orders %}
+    <div class="space-y-4">
+        {% for order in orders %}
+        <div class="order-card bg-white rounded-lg shadow p-6" data-order="{{ order.id }}">
+            <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+                <!-- معلومات الطلبية -->
+                <div class="flex-1">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">{{ order.customer_name }}</h3>
+                            <p class="text-sm text-gray-600">{{ order.product }}</p>
+                        </div>
+                        <div class="flex items-center space-x-2 space-x-reverse mt-2 sm:mt-0">
+                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                                #{{ order.id }}
+                            </span>
+                            {% if order.local_status == 'completed' %}
+                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                                مكتملة
+                            </span>
+                            {% else %}
+                            <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
+                                قيد التنفيذ
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- معلومات الاتصال والموقع -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="space-y-2">
+                            <div class="flex items-center text-sm text-gray-600">
+                                <i class="fas fa-phone ml-2"></i>
+                                <span>{{ order.phone }}</span>
+                            </div>
+                            <div class="flex items-center text-sm text-gray-600">
+                                <i class="fas fa-map-marker-alt ml-2"></i>
+                                <span>{{ order.address }}</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center text-sm text-gray-600">
+                                <i class="fas fa-calendar-alt ml-2"></i>
+                                <span>التعيين: {{ order.assigned_date }}</span>
+                            </div>
+                            <div class="flex items-center text-sm text-gray-600">
+                                <i class="fas fa-flag-checkered ml-2"></i>
+                                <span>الانتهاء المتوقع: {{ order.expected_completion_date }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- شريط التقدم -->
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-gray-700">تقدم العمل</span>
+                            <span class="text-sm text-gray-500 progress-text">{{ order.progress_percentage }}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-{% if order.progress_percentage < 30 %}low{% elif order.progress_percentage < 70 %}medium{% else %}high{% endif %}" 
+                                 style="width: {{ order.progress_percentage }}%"></div>
+                        </div>
+                        <div class="flex justify-between items-center mt-1">
+                            <span class="text-xs text-gray-500">بداية العمل</span>
+                            <span class="text-xs text-{% if order.days_remaining <= 2 %}red-600{% elif order.days_remaining <= 5 %}orange-600{% else %}green-600{% endif %}">
+                                {{ order.days_remaining }} أيام متبقية
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- أزرار التحكم -->
+                <div class="flex flex-col space-y-2 min-w-[200px]">
+                    {% if order.local_status != 'completed' %}
+                    <!-- تحديث التقدم -->
+                    <div class="flex space-x-2 space-x-reverse">
+                        <button onclick="workerApp.updateOrderProgress({{ order.id }}, 25)" 
+                                class="flex-1 bg-blue-100 text-blue-700 px-3 py-2 rounded text-sm hover:bg-blue-200 transition-colors">
+                            25%
+                        </button>
+                        <button onclick="workerApp.updateOrderProgress({{ order.id }}, 50)" 
+                                class="flex-1 bg-blue-100 text-blue-700 px-3 py-2 rounded text-sm hover:bg-blue-200 transition-colors">
+                            50%
+                        </button>
+                        <button onclick="workerApp.updateOrderProgress({{ order.id }}, 75)" 
+                                class="flex-1 bg-blue-100 text-blue-700 px-3 py-2 rounded text-sm hover:bg-blue-200 transition-colors">
+                            75%
+                        </button>
+                    </div>
+                    
+                    <!-- إكمال الطلبية -->
+                    <button onclick="workerApp.completeOrder({{ order.id }})" 
+                            class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 space-x-reverse">
+                        <i class="fas fa-check"></i>
+                        <span>تم الانجاز</span>
+                    </button>
+                    {% else %}
+                    <div class="text-center p-3 bg-green-100 text-green-800 rounded-lg">
+                        <i class="fas fa-check-circle mb-1"></i>
+                        <div class="text-sm">تم الانتهاء</div>
+                        <div class="text-xs mt-1">{{ order.actual_completion_date }}</div>
+                    </div>
+                    {% endif %}
+
+                    <!-- تفاصيل إضافية -->
+                    <button onclick="showOrderDetails({{ order.id }})" 
+                            class="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+                        <i class="fas fa-info-circle ml-1"></i>
+                        تفاصيل الطلبية
+                    </button>
+                </div>
+            </div>
+
+            <!-- تفاصيل إنتاج الطلبية (مخفي بشكل افتراضي) -->
+            <div id="order-details-{{ order.id }}" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                <h4 class="font-semibold text-gray-900 mb-3">تفاصيل الإنتاج</h4>
+                <div class="space-y-2 text-sm text-gray-600">
+                    <div><strong>المدة:</strong> {{ order.duration_days }} أيام</div>
+                    <div><strong>الحالة:</strong> {{ order.status }}</div>
+                    <div><strong>آخر تحديث:</strong> {{ order.updated_at if order.updated_at else order.assigned_date }}</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <i class="fas fa-box-open text-6xl text-gray-300 mb-4"></i>
+        <h3 class="text-xl font-semibold text-gray-500 mb-2">لا توجد طلبيات معينة</h3>
+        <p class="text-gray-400">سيتم تعيين الطلبيات لك من قبل الإدارة</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function showOrderDetails(orderId) {
+    const detailsElement = document.getElementById('order-details-' + orderId);
+    detailsElement.classList.toggle('hidden');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,3718 @@
+<!-- templates/orders/orders_scripts.html -->
+<script>
+// ======================= //
+// 📦 GLOBAL VARIABLES & INITIALIZATION
+// ======================= //
+let originalHistoryData = null;
+let currentOrderId = null;
+let currentRemaining = 0;
+let currentUploadedFiles = [];
+let attachmentNotesList = [];
+let attachmentLabel = '';
+let activeModals = new Set();
+let isInitialized = false;
+let currentHistoryData = [];
+let debtMonitoringInterval = null;
+
+// حالة التطبيق الرئيسية
+const appState = {
+    currentOrderId: null,
+    activeFilters: {},
+    pendingOperations: 0,
+    isOnline: navigator.onLine,
+    timeouts: {}
+};
+
+// حالة فلاتر السجل
+const historyFiltersState = {
+    user: '',
+    type: '',
+    dateFrom: '',
+    dateTo: '',
+    searchText: ''
+};
+
+// 🔧 إصلاح خطأ URL.revokeObjectURL
+function safeRevokeObjectURL(url) {
+    try {
+        if (url && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+            URL.revokeObjectURL(url);
+        }
+    } catch (error) {
+        console.log('⚠️ لا يمكن تحرير الرابط:', error);
+    }
+}
+
+// ======================= //
+// 🎯 CORE MODAL MANAGEMENT
+// ======================= //
+
+function showModal(modalId) {
+    // ✅ إغلاق أي نوافذ مفتوحة أولاً
+    closeAllModals();
+    
+    if (activeModals.size >= 3) {
+        showToast('يوجد العديد من النوافذ المفتوحة', 'warning');
+        return;
+    }
+    
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        // ✅ إخفاء النافذة أولاً ثم إظهارها
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            activeModals.add(modalId);
+        }, 50);
+        
+        // ✅ تحسينات الجوال
+        if (isMobileDevice()) {
+            const modalContent = modal.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.style.margin = '1rem';
+                modalContent.style.maxHeight = 'calc(100vh - 2rem)';
+            }
+        }
+    } else {
+        console.error(`Modal ${modalId} not found`);
+    }
+}
+
+function hideModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('active');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 300);
+        
+        activeModals.delete(modalId);
+        
+        if (activeModals.size === 0) {
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+        }
+    }
+}
+
+// ======================= //
+// 📱 MOBILE ENHANCEMENTS
+// ======================= //
+
+function isMobileDevice() {
+    return window.innerWidth <= 768;
+}
+
+function toggleMobilePhoneOptions(phoneNumber, orderId) {
+    const callBtn = document.getElementById('mobileCallBtn');
+    const whatsappBtn = document.getElementById('mobileWhatsappBtn');
+    const copyBtn = document.getElementById('mobileCopyBtn');
+    
+    if (callBtn) callBtn.href = `tel:${phoneNumber}`;
+    if (whatsappBtn) whatsappBtn.href = `https://wa.me/${phoneNumber.replace('+', '').replace(' ', '')}`;
+    
+    if (copyBtn) {
+        copyBtn.onclick = () => {
+            copyPhoneNumber(phoneNumber);
+        };
+    }
+    
+    showModal('mobilePhoneModal');
+}
+
+function editMobileOrder(orderId) {
+    if (!orderId) {
+        showToast('معرف الطلبية غير صالح', 'error');
+        return;
+    }
+    
+    fetch(`/api/orders/${orderId}/basic-info`)
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                document.getElementById('modalTitle').textContent = '✏️ تعديل الطلبية';
+                document.getElementById('orderForm').action = '/orders/edit/' + orderId;
+                document.getElementById('order_id').value = orderId;
+                
+                document.getElementById('order_name').value = data.order.name || '';
+                document.getElementById('order_wilaya').value = data.order.wilaya || '';
+                document.getElementById('order_product').value = data.order.product || '';
+                document.getElementById('order_paid').value = data.order.paid || '0';
+                document.getElementById('order_total').value = data.order.total || '0';
+                document.getElementById('order_note').value = data.order.note || '';
+                document.getElementById('order_status').value = data.order.status_id || '';
+                document.getElementById('order_phone').value = data.order.phone || '';
+
+                showModal('orderModal');
+            } else {
+                showToast('خطأ في تحميل بيانات الطلبية', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading order data:', error);
+            showToast('خطأ في تحميل بيانات الطلبية', 'error');
+        });
+}
+
+function initScrollToTop() {
+    const scrollButton = document.getElementById('scrollToTop');
+    if (scrollButton) {
+        window.addEventListener('scroll', () => {
+            if (window.pageYOffset > 300) {
+                scrollButton.classList.remove('hidden');
+            } else {
+                scrollButton.classList.add('hidden');
+            }
+        });
+        
+        scrollButton.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+}
+
+function showMobileLoader() {
+    const loader = document.getElementById('mobileLoader');
+    if (loader) loader.classList.remove('hidden');
+}
+
+function hideMobileLoader() {
+    const loader = document.getElementById('mobileLoader');
+    if (loader) loader.classList.add('hidden');
+}
+
+// ======================= //
+// 🔔 NOTIFICATION SYSTEM
+// ======================= //
+
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast-notification ${getToastColor(type)}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 3000);
+}
+
+function getToastColor(type) {
+    const colors = {
+        'success': 'toast-success',
+        'warning': 'toast-warning',
+        'error': 'toast-error',
+        'info': 'toast-info'
+    };
+    return colors[type] || colors.info;
+}
+
+// ======================= //
+// 🔍 SMART SEARCH & FILTERS
+// ======================= //
+
+function setupSearchAndFilters() {
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const workerFilter = document.getElementById('workerFilter');
+    const healthFilter = document.getElementById('healthFilter');
+    
+    if (!searchInput) {
+        console.error('❌ عناصر البحث غير موجودة');
+        return;
+    }
+    
+    // ✅ بحث ذكي مع تأخير
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            performSmartSearch();
+        }, 300);
+    });
+    
+    // ✅ إضافة مستمعين للفلاتر
+    [statusFilter, workerFilter, healthFilter].forEach(filter => {
+        if (filter) {
+            filter.addEventListener('change', performSmartSearch);
+        }
+    });
+    
+    // ✅ تحميل إحصائيات الديون مع الفلاتر
+    performSmartSearch();
+}
+
+function performSmartSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const workerFilter = document.getElementById('workerFilter');
+    const healthFilter = document.getElementById('healthFilter');
+    
+    if (!searchInput) {
+        console.error('Search input not found');
+        return;
+    }
+    
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const statusValue = statusFilter?.value || '';
+    const workerValue = workerFilter?.value || '';
+    const healthValue = healthFilter?.value || '';
+    
+    const rows = document.querySelectorAll('#ordersTable tr[data-order-id], .order-card');
+    let visibleCount = 0;
+    const processedOrders = new Set();
+    
+    if (rows.length === 0) {
+        console.warn('No rows found for filtering');
+        return;
+    }
+    
+    rows.forEach(row => {
+        try {
+            const orderId = row.getAttribute('data-order-id');
+            
+            if (processedOrders.has(orderId)) {
+                row.style.display = 'none';
+                return;
+            }
+            
+            processedOrders.add(orderId);
+            
+            const searchIndex = row.getAttribute('data-search-index') || '';
+            const rowStatus = row.dataset.status || '';
+            const rowWorkerIds = row.dataset.workerIds || '';
+            const rowHealthStatus = row.dataset.healthStatus || '';
+            
+            const matchesSearch = !searchTerm || searchIndex.includes(searchTerm);
+            const matchesStatus = !statusValue || rowStatus === statusValue;
+            const matchesWorker = !workerValue || rowWorkerIds.includes(workerValue);
+            const matchesHealth = !healthValue || rowHealthStatus === healthValue;
+            
+            const shouldShow = matchesSearch && matchesStatus && matchesWorker && matchesHealth;
+            
+            row.style.display = shouldShow ? '' : 'none';
+            if (shouldShow) visibleCount++;
+            
+        } catch (error) {
+            console.error('Error filtering row:', error);
+            row.style.display = '';
+        }
+    });
+    
+    // ✅ تحديث الإحصائيات باستخدام API الجديد
+    loadOrdersHealthStats();
+    
+    // ✅ إشعار ذكي بنتائج البحث
+    if (searchTerm || statusValue || workerValue || healthValue) {
+        const message = visibleCount === 0 ? 
+            '❌ لم يتم العثور على نتائج' : 
+            `✅ تم العثور على ${visibleCount} طلبية`;
+        showToast(message, visibleCount > 0 ? 'success' : 'warning');
+    }
+}
+
+// ======================= //
+// 💰 COST MANAGEMENT SYSTEM
+// ======================= //
+
+async function loadTotalCosts() {
+    try {
+        console.log('🔄 جاري تحميل التكاليف الإجمالية...');
+        
+        const response = await fetch('/api/orders/total-costs');
+        if (!response.ok) {
+            throw new Error(`خطأ في الشبكة: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ تم تحميل التكاليف:', data.costs);
+            updateCostsDisplay(data.costs);
+            
+            // ✅ تحديث إحصائيات إضافية
+            updateAdditionalCostStats(data.costs);
+            
+        } else {
+            console.error('❌ خطأ في استجابة التكاليف:', data.error);
+            showToast('خطأ في تحميل التكاليف', 'error');
+            setDefaultCostsValues();
+        }
+    } catch (error) {
+        console.error('❌ خطأ في تحميل التكاليف:', error);
+        showToast('خطأ في تحميل التكاليف', 'error');
+        setDefaultCostsValues();
+    }
+}
+
+function updateCostsDisplay(costs) {
+    if (!costs) {
+        console.warn('⚠️ لا توجد بيانات تكاليف للعرض');
+        return;
+    }
+    
+    console.log('🔄 تحديث عرض التكاليف:', costs);
+    
+    const purchasesCost = document.getElementById('totalPurchasesCost');
+    const transportCost = document.getElementById('totalTransportCost');
+    const combinedCost = document.getElementById('totalCombinedCost');
+    const averageCost = document.getElementById('averageCostPerOrder');
+    const purchasesPercentage = document.getElementById('purchasesPercentage');
+    const transportPercentage = document.getElementById('transportPercentage');
+    const progressBar = document.getElementById('costProgressBar');
+    const transportProgressBar = document.getElementById('transportProgressBar');
+    const distribution = document.getElementById('costDistribution');
+    
+    // ✅ تحديث القيم العددية
+    if (purchasesCost) purchasesCost.textContent = formatCurrency(costs.total_purchases);
+    if (transportCost) transportCost.textContent = formatCurrency(costs.total_transport);
+    if (combinedCost) combinedCost.textContent = formatCurrency(costs.total_combined);
+    if (averageCost) averageCost.textContent = formatCurrency(costs.average_per_order) + '/طلب';
+    
+    const total = costs.total_combined || 1;
+    const purchasesPercentageValue = total > 0 ? (costs.total_purchases / total) * 100 : 0;
+    const transportPercentageValue = total > 0 ? (costs.total_transport / total) * 100 : 0;
+    
+    // ✅ تحديث النسب المئوية
+    if (purchasesPercentage) purchasesPercentage.textContent = purchasesPercentageValue.toFixed(1) + '%';
+    if (transportPercentage) transportPercentage.textContent = transportPercentageValue.toFixed(1) + '%';
+    
+    // ✅ تحديث أشرطة التقدم
+    if (progressBar) {
+        progressBar.style.width = purchasesPercentageValue + '%';
+    }
+    
+    if (transportProgressBar) {
+        transportProgressBar.style.width = transportPercentageValue + '%';
+        transportProgressBar.style.left = purchasesPercentageValue + '%';
+    }
+    
+    // ✅ تحديث توزيع التكاليف
+    if (distribution) {
+        distribution.textContent = 
+            `${purchasesPercentageValue.toFixed(1)}% مشتريات | ${transportPercentageValue.toFixed(1)}% نقل`;
+    }
+    
+    // ✅ تحديث ألوان أشرطة التقدم
+    updateProgressBarColors(purchasesPercentageValue, transportPercentageValue);
+    
+    // ✅ إضافة تأثيرات بصرية
+    animateCostsUpdate();
+}
+
+function updateProgressBarColors(purchasesPercent, transportPercent) {
+    const progressBar = document.getElementById('costProgressBar');
+    const transportBar = document.getElementById('transportProgressBar');
+    
+    if (!progressBar || !transportBar) return;
+    
+    // ✅ تحديث لون شريط المشتريات
+    if (purchasesPercent < 30) {
+        progressBar.className = 'absolute top-0 left-0 h-3 rounded-full bg-gradient-to-r from-green-400 to-emerald-400 transition-all duration-1000';
+    } else if (purchasesPercent < 60) {
+        progressBar.className = 'absolute top-0 left-0 h-3 rounded-full bg-gradient-to-r from-yellow-400 to-amber-400 transition-all duration-1000';
+    } else {
+        progressBar.className = 'absolute top-0 left-0 h-3 rounded-full bg-gradient-to-r from-red-400 to-pink-400 transition-all duration-1000';
+    }
+    
+    // ✅ تحديث لون شريط النقل
+    if (transportPercent < 20) {
+        transportBar.className = 'absolute top-0 left-0 h-3 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 transition-all duration-1000';
+    } else if (transportPercent < 40) {
+        transportBar.className = 'absolute top-0 left-0 h-3 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 transition-all duration-1000';
+    } else {
+        transportBar.className = 'absolute top-0 left-0 h-3 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 transition-all duration-1000';
+    }
+}
+
+function animateCostsUpdate() {
+    const costElements = [
+        'totalPurchasesCost',
+        'totalTransportCost', 
+        'totalCombinedCost',
+        'averageCostPerOrder'
+    ];
+    
+    costElements.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.classList.add('cost-value-updating');
+            setTimeout(() => {
+                element.classList.remove('cost-value-updating');
+            }, 1000);
+        }
+    });
+}
+
+function setDefaultCostsValues() {
+    const elements = {
+        'totalPurchasesCost': '0 دج',
+        'totalTransportCost': '0 دج',
+        'totalCombinedCost': '0 دج',
+        'averageCostPerOrder': '0 دج/طلب',
+        'purchasesPercentage': '0%',
+        'transportPercentage': '0%'
+    };
+    
+    Object.keys(elements).forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = elements[id];
+    });
+    
+    const progressBar = document.getElementById('costProgressBar');
+    const transportBar = document.getElementById('transportProgressBar');
+    const distribution = document.getElementById('costDistribution');
+    
+    if (progressBar) progressBar.style.width = '0%';
+    if (transportBar) transportBar.style.width = '0%';
+    if (distribution) distribution.textContent = '0% مشتريات | 0% نقل';
+}
+
+function updateAdditionalCostStats(costs) {
+    console.log('📊 إحصائيات التكاليف المحدثة:', costs);
+}
+
+function formatCurrency(amount) {
+    const numAmount = parseFloat(amount) || 0;
+    return new Intl.NumberFormat('ar-DZ', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(numAmount) + ' دج';
+}
+
+// ======================= //
+// 📊 COSTS REPORT SYSTEM
+// ======================= //
+
+function showCostsReportModal() {
+    showModal('costsReportModal');
+    loadCostsReport();
+}
+
+async function loadCostsReport() {
+    try {
+        showMobileLoader();
+        
+        const userFilter = document.getElementById('costReportUserFilter')?.value || '';
+        const dateFrom = document.getElementById('costReportDateFrom')?.value || '';
+        const dateTo = document.getElementById('costReportDateTo')?.value || '';
+        
+        const params = new URLSearchParams();
+        if (userFilter) params.append('user', userFilter);
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo);
+        
+        const response = await fetch(`/api/orders/costs-report?${params}`);
+        if (!response.ok) throw new Error('Network error');
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            updateCostsReportUI(data.report);
+        } else {
+            showToast('خطأ في تحميل تقرير التكاليف', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading costs report:', error);
+        showToast('خطأ في تحميل تقرير التكاليف', 'error');
+    } finally {
+        hideMobileLoader();
+    }
+}
+
+function updateCostsReportUI(report) {
+    // تحديث الإحصائيات
+    const statsElement = document.getElementById('costsReportStats');
+    if (statsElement && report.categories) {
+        statsElement.textContent = `${report.categories.length} تصنيف`;
+    }
+    
+    // تحديث بطاقات التصنيفات
+    updateCostsCategoriesGrid(report.categories || []);
+    
+    // تحديث جدول التفاصيل
+    updateCostsDetailsTable(report.details || []);
+}
+
+function updateCostsCategoriesGrid(categories) {
+    const container = document.getElementById('costsCategoriesGrid');
+    if (!container) return;
+    
+    if (categories && categories.length > 0) {
+        let html = '';
+        categories.forEach(category => {
+            const percentage = category.percentage || 0;
+            const color = getCostCategoryColor(percentage);
+            
+            html += `
+                <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 ${color}">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-semibold text-gray-900">${category.name}</h4>
+                        <span class="text-sm font-bold ${color.replace('border-', 'text-')}">
+                            ${percentage.toFixed(1)}%
+                        </span>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-900 mb-1">
+                        ${formatCurrency(category.total_amount)}
+                    </div>
+                    <div class="flex justify-between text-sm text-gray-600">
+                        <span>${category.transaction_count} عملية</span>
+                        <span>${category.user_count} مستخدم</span>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = `
+            <div class="empty-state col-span-3">
+                <i class="fas fa-chart-bar"></i>
+                <p>لا توجد بيانات للعرض</p>
+            </div>
+        `;
+    }
+}
+
+function updateCostsDetailsTable(details) {
+    const container = document.getElementById('costsDetailsTable');
+    if (!container) return;
+    
+    if (details && details.length > 0) {
+        let html = '';
+        details.forEach(item => {
+            html += `
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-3">${item.category}</td>
+                    <td class="p-3">${item.user}</td>
+                    <td class="p-3 text-center">${item.transaction_count}</td>
+                    <td class="p-3 font-semibold">${formatCurrency(item.total_amount)}</td>
+                    <td class="p-3 text-center">${item.percentage?.toFixed(1) || 0}%</td>
+                    <td class="p-3">
+                        <button onclick="viewCategoryDetails('${item.category}')" 
+                                class="text-blue-600 hover:text-blue-800 text-sm">
+                            <i class="fas fa-eye ml-1"></i>
+                            عرض
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-6 text-center text-gray-500">
+                    <i class="fas fa-chart-bar text-4xl mb-3 text-gray-300"></i>
+                    <p>لا توجد بيانات للعرض</p>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function getCostCategoryColor(percentage) {
+    if (percentage >= 30) return 'border-red-500';
+    if (percentage >= 15) return 'border-orange-500';
+    if (percentage >= 5) return 'border-yellow-500';
+    return 'border-green-500';
+}
+
+function resetCostsReportFilters() {
+    const userFilter = document.getElementById('costReportUserFilter');
+    const dateFrom = document.getElementById('costReportDateFrom');
+    const dateTo = document.getElementById('costReportDateTo');
+    
+    if (userFilter) userFilter.value = '';
+    if (dateFrom) dateFrom.value = '';
+    if (dateTo) dateTo.value = '';
+    
+    loadCostsReport();
+    showToast('تم إعادة تعيين الفلاتر', 'success');
+}
+
+function exportCostsReport() {
+    showToast('جاري تحضير التقرير للتصدير...', 'info');
+    // يمكن إضافة منطق التصدير هنا
+    setTimeout(() => {
+        showToast('تم تصدير التقرير بنجاح', 'success');
+    }, 2000);
+}
+
+function viewCategoryDetails(categoryName) {
+    showToast(`جاري تحميل تفاصيل ${categoryName}...`, 'info');
+    // يمكن إضافة منطق عرض التفاصيل هنا
+}
+
+// ======================= //
+// 💳 DEBT MANAGEMENT SYSTEM
+// ======================= //
+
+function showOrdersWithDebts() {
+    showModal('ordersDebtsModal');
+    loadOrdersWithDebts();
+}
+
+async function loadOrdersWithDebts() {
+    try {
+        showMobileLoader();
+        
+        const response = await fetch('/api/orders/with_debts');
+        if (!response.ok) throw new Error('Network error');
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            updateOrdersDebtsUI(data.orders, data.statistics);
+        } else {
+            showToast('خطأ في تحميل بيانات الديون', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading orders with debts:', error);
+        showToast('خطأ في تحميل بيانات الديون', 'error');
+    } finally {
+        hideMobileLoader();
+    }
+}
+
+function updateOrdersDebtsUI(orders, statistics) {
+    // تحديث الإحصائيات
+    updateDebtsStatistics(statistics);
+    
+    // تحديث جدول الطلبيات
+    updateOrdersDebtsList(orders);
+}
+
+function updateDebtsStatistics(stats) {
+    const totalDebts = document.getElementById('modalTotalDebts');
+    const affectedOrders = document.getElementById('modalAffectedOrders');
+    const averageDebt = document.getElementById('modalAverageDebt');
+    const debtFreeOrders = document.getElementById('modalDebtFreeOrders');
+    const summary = document.getElementById('ordersDebtsSummary');
+    
+    if (totalDebts) totalDebts.textContent = formatCurrency(stats.total_debts);
+    if (affectedOrders) affectedOrders.textContent = stats.affected_orders;
+    if (averageDebt) averageDebt.textContent = formatCurrency(stats.average_debt);
+    if (debtFreeOrders) debtFreeOrders.textContent = stats.debt_free_orders;
+    if (summary) {
+        summary.textContent = `${stats.affected_orders} طلبية بإجمالي ${formatCurrency(stats.total_debts)} ديون`;
+    }
+}
+
+function updateOrdersDebtsList(orders) {
+    const container = document.getElementById('ordersDebtsList');
+    if (!container) return;
+    
+    if (orders && orders.length > 0) {
+        let html = '';
+        orders.forEach(order => {
+            const statusColor = getDebtStatusColor(order.status);
+            
+            html += `
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-3 font-semibold">#${order.order_id}</td>
+                    <td class="p-3">${order.customer_name}</td>
+                    <td class="p-3 font-semibold">${formatCurrency(order.total_amount)}</td>
+                    <td class="p-3 font-bold text-red-600">${formatCurrency(order.debt_amount)}</td>
+                    <td class="p-3 text-center">
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColor}">
+                            ${order.debt_percentage.toFixed(1)}%
+                        </span>
+                    </td>
+                    <td class="p-3">
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${getDebtStatusBadgeColor(order.status)}">
+                            ${order.status}
+                        </span>
+                    </td>
+                    <td class="p-3">
+                        <div class="flex gap-2">
+                            <button onclick="showOrderDetails(${order.order_id})" 
+                                    class="text-blue-600 hover:text-blue-800 text-sm">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="showDebtDetails(${order.order_id})" 
+                                    class="text-purple-600 hover:text-purple-800 text-sm">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                            </button>
+                            <button onclick="showPaymentModal(${order.order_id}, ${order.debt_amount})" 
+                                    class="text-green-600 hover:text-green-800 text-sm">
+                                <i class="fas fa-money-bill-wave"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = `
+            <tr>
+                <td colspan="7" class="p-6 text-center text-gray-500">
+                    <i class="fas fa-check-circle text-4xl mb-3 text-green-300"></i>
+                    <p>لا توجد طلبيات بها ديون</p>
+                    <p class="text-sm text-gray-400 mt-1">جميع الطلبيات سليمة مالياً</p>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function getDebtStatusColor(status) {
+    switch(status) {
+        case 'ديون قليلة': return 'bg-green-100 text-green-800';
+        case 'ديون متوسطة': return 'bg-yellow-100 text-yellow-800';
+        case 'ديون عالية': return 'bg-red-100 text-red-800';
+        default: return 'bg-gray-100 text-gray-800';
+    }
+}
+
+function getDebtStatusBadgeColor(status) {
+    switch(status) {
+        case 'ديون قليلة': return 'bg-green-500 text-white';
+        case 'ديون متوسطة': return 'bg-yellow-500 text-white';
+        case 'ديون عالية': return 'bg-red-500 text-white';
+        default: return 'bg-gray-500 text-white';
+    }
+}
+
+function showDebtDetails(orderId) {
+    currentOrderId = orderId;
+    showHistory(orderId);
+    showToast('جاري تحميل تفاصيل الديون...', 'info');
+}
+
+// ======================= //
+// 📋 ORDER MANAGEMENT SYSTEM
+// ======================= //
+
+function showAddForm() {
+    const modalTitle = document.getElementById('modalTitle');
+    const orderForm = document.getElementById('orderForm');
+    
+    if (modalTitle) modalTitle.textContent = '➕ إضافة طلبية جديدة';
+    if (orderForm) {
+        orderForm.action = "{{ url_for('orders.add_order') }}";
+        orderForm.reset();
+    }
+    
+    const statusSelect = document.getElementById('order_status');
+    const orderId = document.getElementById('order_id');
+    
+    if (statusSelect) statusSelect.value = '';
+    if (orderId) orderId.value = '';
+    
+    showModal('orderModal');
+}
+
+function editOrder(button) {
+    if (!button) return;
+    
+    const orderId = button.dataset.id;
+    if (!orderId) {
+        showToast('معرف الطلبية غير صالح', 'error');
+        return;
+    }
+    
+    const modalTitle = document.getElementById('modalTitle');
+    const orderForm = document.getElementById('orderForm');
+    
+    if (modalTitle) modalTitle.textContent = '✏️ تعديل الطلبية';
+    if (orderForm) orderForm.action = '/orders/edit/' + orderId;
+    
+    const orderIdInput = document.getElementById('order_id');
+    if (orderIdInput) orderIdInput.value = orderId;
+    
+    // تعبئة البيانات
+    const fields = ['name', 'wilaya', 'product', 'paid', 'total', 'note', 'status', 'phones'];
+    fields.forEach(field => {
+        const element = document.getElementById('order_' + field);
+        if (element) {
+            element.value = button.dataset[field] || '';
+        }
+    });
+
+    showModal('orderModal');
+}
+
+function showOrderDetails(orderId) {
+    if (!orderId) {
+        showToast('معرف الطلبية غير صالح', 'error');
+        return;
+    }
+    
+    currentOrderId = orderId;
+    const detailsOrderId = document.getElementById('detailsOrderId');
+    const assignOrderId = document.getElementById('assign_order_id');
+    
+    if (detailsOrderId) detailsOrderId.textContent = orderId;
+    if (assignOrderId) assignOrderId.value = orderId;
+    
+    loadOrderDetails(orderId);
+    showModal('detailsModal');
+}
+
+function loadOrderDetails(orderId) {
+    showMobileLoader();
+    fetch(`/api/orders/${orderId}/details`)
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                updateDetailsUI(data);
+                loadAutoPerformanceEvaluation(orderId);
+                loadPostInstallationIssues(orderId);
+            } else {
+                showToast('خطأ في تحميل التفاصيل', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading order details:', error);
+            showToast('خطأ في تحميل التفاصيل', 'error');
+        })
+        .finally(() => {
+            hideMobileLoader();
+        });
+}
+
+function updateDetailsUI(data) {
+    if (!data || !data.order) return;
+    
+    const detailsOrderId = document.getElementById('detailsOrderId');
+    const detailsCustomerName = document.getElementById('detailsCustomerName');
+    
+    if (detailsOrderId) detailsOrderId.textContent = data.order.id;
+    if (detailsCustomerName) detailsCustomerName.textContent = data.order.customer_name || 'غير محدد';
+    
+    // تعبئة الحقول
+    const fields = {
+        'production_details': data.order.production_details,
+        'start_date': data.order.start_date,
+        'expected_delivery': data.order.expected_delivery,
+        'actual_delivery': data.order.actual_delivery
+    };
+    
+    Object.keys(fields).forEach(field => {
+        const element = document.getElementById(field);
+        if (element) element.value = fields[field] || '';
+    });
+    
+    updateAssignmentsUI(data.assignments || []);
+}
+
+function updateAssignmentsUI(assignments) {
+    const container = document.getElementById('currentAssignments');
+    if (!container) return;
+    
+    if (assignments && assignments.length > 0) {
+        let html = '';
+        assignments.forEach(assignment => {
+            const assignmentType = getAssignmentTypeText(assignment.assignment_type);
+            
+            html += `
+                <div class="assignment-item">
+                    <div class="assignment-content">
+                        <div class="assignment-avatar">
+                            ${assignment.worker_name?.charAt(0) || '?'}
+                        </div>
+                        <div class="assignment-details">
+                            <div class="assignment-name">${assignment.worker_name || 'غير معروف'}</div>
+                            <div class="assignment-meta">
+                                <span class="assignment-type">${assignmentType}</span>
+                                <span class="assignment-date">${assignment.assigned_date || ''}</span>
+                            </div>
+                            ${assignment.notes ? `<div class="assignment-notes">${assignment.notes}</div>` : ''}
+                        </div>
+                    </div>
+                    <button onclick="deassignWorker(${assignment.id})" class="assignment-action">
+                        <i class="fas fa-user-times"></i>
+                    </button>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-user-clock"></i>
+                <p>لا توجد تعيينات حالية</p>
+                <p class="text-xs">استخدم النموذج أدناه لإضافة تعيين جديد</p>
+            </div>
+        `;
+    }
+}
+
+function getAssignmentTypeText(type) {
+    const types = {
+        'workshop': 'ورشة',
+        'travel': 'سفر',
+        'installation': 'تركيب',
+        'maintenance': 'صيانة'
+    };
+    return types[type] || type;
+}
+
+// إدارة تعيين العمال
+document.addEventListener('DOMContentLoaded', function() {
+    const assignForm = document.getElementById('assignWorkerForm');
+    if (assignForm) {
+        assignForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            assignWorker();
+        });
+    }
+});
+
+function assignWorker() {
+    const formData = new FormData();
+    const orderId = document.getElementById('assign_order_id');
+    const workerId = document.getElementById('assign_worker_id');
+    const assignmentType = document.getElementById('assign_type');
+    const notes = document.getElementById('assign_notes');
+    
+    if (!orderId || !workerId || !assignmentType) {
+        showToast('بيانات التعيين غير مكتملة', 'error');
+        return;
+    }
+    
+    formData.append('order_id', orderId.value);
+    formData.append('worker_id', workerId.value);
+    formData.append('assignment_type', assignmentType.value);
+    formData.append('notes', notes?.value || '');
+    
+    showMobileLoader();
+    fetch('/api/orders/assign-worker', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Network error');
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showToast('تم تعيين العامل بنجاح');
+            loadOrderDetails(currentOrderId);
+            const form = document.getElementById('assignWorkerForm');
+            if (form) form.reset();
+        } else {
+            showToast(data.error || 'خطأ في التعيين', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error assigning worker:', error);
+        showToast('خطأ في التعيين', 'error');
+    })
+    .finally(() => {
+        hideMobileLoader();
+    });
+}
+
+function deassignWorker(assignmentId) {
+    if (!assignmentId) return;
+    
+    if (confirm('هل تريد إلغاء تعيين هذا العامل؟')) {
+        showMobileLoader();
+        fetch(`/api/orders/deassign-worker/${assignmentId}`, {
+            method: 'POST'
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                showToast('تم إلغاء التعيين بنجاح');
+                loadOrderDetails(currentOrderId);
+            } else {
+                showToast(data.error || 'خطأ في إلغاء التعيين', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error deassigning worker:', error);
+            showToast('خطأ في إلغاء التعيين', 'error');
+        })
+        .finally(() => {
+            hideMobileLoader();
+        });
+    }
+}
+
+function saveOrderDetails() {
+    const formData = new FormData();
+    formData.append('order_id', currentOrderId);
+    
+    const fields = ['production_details', 'start_date', 'expected_delivery', 'actual_delivery'];
+    fields.forEach(field => {
+        const element = document.getElementById(field);
+        if (element) formData.append(field, element.value);
+    });
+    
+    showMobileLoader();
+    fetch('/api/orders/update-details', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Network error');
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showToast('تم حفظ التفاصيل بنجاح');
+            hideModal('detailsModal');
+        } else {
+            showToast(data.error || 'خطأ في حفظ التفاصيل', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving details:', error);
+        showToast('خطأ في حفظ التفاصيل', 'error');
+    })
+    .finally(() => {
+        hideMobileLoader();
+    });
+}
+
+// ======================= //
+// ⭐ AUTO PERFORMANCE EVALUATION
+// ======================= //
+
+async function loadAutoPerformanceEvaluation(orderId) {
+    try {
+        const response = await fetch(`/api/orders/${orderId}/auto-evaluation`);
+        if (!response.ok) throw new Error('Network error');
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            updateAutoPerformanceUI(data.evaluation);
+        }
+    } catch (error) {
+        console.error('Error loading auto performance evaluation:', error);
+    }
+}
+
+function updateAutoPerformanceUI(evaluation) {
+    if (!evaluation) return;
+    
+    // تحديث النقاط التلقائية
+    const scores = {
+        'autoTimeScore': evaluation.time_score || 0,
+        'autoCostScore': evaluation.cost_score || 0,
+        'autoQualityScore': evaluation.quality_score || 0,
+        'autoWorkerScore': evaluation.worker_score || 0
+    };
+    
+    Object.keys(scores).forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = scores[id] + '%';
+            // تحديث الألوان حسب النقاط
+            if (scores[id] >= 80) {
+                element.className = element.className.replace(/(text-(red|yellow|orange))-600/, 'text-green-600');
+            } else if (scores[id] >= 60) {
+                element.className = element.className.replace(/(text-(red|green|orange))-600/, 'text-yellow-600');
+            } else {
+                element.className = element.className.replace(/(text-(green|yellow|orange))-600/, 'text-red-600');
+            }
+        }
+    });
+    
+    // تحديث التقييم النهائي
+    const overallScore = evaluation.overall_score || 0;
+    const scoreElement = document.getElementById('overall_score');
+    const progressElement = document.getElementById('score_progress');
+    const summaryElement = document.getElementById('performanceSummary');
+    
+    if (scoreElement) scoreElement.textContent = overallScore + '%';
+    if (progressElement) progressElement.style.width = overallScore + '%';
+    
+    // تحديث لون التقييم النهائي
+    if (overallScore >= 80) {
+        scoreElement.className = 'text-2xl font-bold text-green-600';
+        progressElement.className = 'h-2 rounded-full bg-green-500 transition-all duration-500';
+        if (summaryElement) summaryElement.textContent = 'أداء ممتاز - الطلبية تسير بشكل جيد';
+    } else if (overallScore >= 60) {
+        scoreElement.className = 'text-2xl font-bold text-yellow-600';
+        progressElement.className = 'h-2 rounded-full bg-yellow-500 transition-all duration-500';
+        if (summaryElement) summaryElement.textContent = 'أداء مقبول - هناك مجال للتحسين';
+    } else {
+        scoreElement.className = 'text-2xl font-bold text-red-600';
+        progressElement.className = 'h-2 rounded-full bg-red-500 transition-all duration-500';
+        if (summaryElement) summaryElement.textContent = 'أداء يحتاج تحسين - هناك مشاكل تحتاج المعالجة';
+    }
+    
+    // تحديث تحليل الأداء
+    updatePerformanceInsights(evaluation.insights || []);
+}
+
+function updatePerformanceInsights(insights) {
+    const container = document.getElementById('performanceInsights');
+    if (!container) return;
+    
+    if (insights && insights.length > 0) {
+        let html = '';
+        insights.forEach(insight => {
+            const icon = getInsightIcon(insight.type);
+            const color = getInsightColor(insight.severity);
+            
+            html += `
+                <div class="flex items-start gap-2 p-2 bg-white rounded-lg border ${color}">
+                    <i class="fas fa-${icon} mt-1 text-sm"></i>
+                    <div class="flex-1">
+                        <div class="text-sm font-medium">${insight.title}</div>
+                        <div class="text-xs text-gray-600">${insight.description}</div>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-chart-bar"></i>
+                <p>لا توجد تحليلات حالياً</p>
+            </div>
+        `;
+    }
+}
+
+function getInsightIcon(type) {
+    const icons = {
+        'time': 'clock',
+        'cost': 'money-bill-wave',
+        'quality': 'star',
+        'worker': 'user',
+        'material': 'box',
+        'transport': 'truck'
+    };
+    return icons[type] || 'info-circle';
+}
+
+function getInsightColor(severity) {
+    const colors = {
+        'high': 'border-red-200 bg-red-50',
+        'medium': 'border-yellow-200 bg-yellow-50',
+        'low': 'border-green-200 bg-green-50',
+        'info': 'border-blue-200 bg-blue-50'
+    };
+    return colors[severity] || 'border-gray-200 bg-gray-50';
+}
+
+function refreshAutoEvaluation() {
+    if (!currentOrderId) return;
+    
+    showMobileLoader();
+    fetch(`/api/orders/${currentOrderId}/refresh-evaluation`, {
+        method: 'POST'
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Network error');
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showToast('تم تحديث التقييم التلقائي بنجاح');
+            loadAutoPerformanceEvaluation(currentOrderId);
+        } else {
+            showToast('خطأ في تحديث التقييم', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error refreshing evaluation:', error);
+        showToast('خطأ في تحديث التقييم', 'error');
+    })
+    .finally(() => {
+        hideMobileLoader();
+    });
+}
+
+// ======================= //
+// ⚠️ POST-INSTALLATION ISSUES SYSTEM
+// ======================= //
+
+async function loadPostInstallationIssues(orderId) {
+    try {
+        const response = await fetch(`/api/orders/${orderId}/post-installation-issues`);
+        if (!response.ok) throw new Error('Network error');
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            updatePostInstallationIssuesUI(data.issues);
+            updateRootCauseAnalysis(data.analysis);
+        }
+    } catch (error) {
+        console.error('Error loading post-installation issues:', error);
+    }
+}
+
+function updatePostInstallationIssuesUI(issues) {
+    const container = document.getElementById('postInstallationIssues');
+    if (!container) return;
+    
+    if (issues && issues.length > 0) {
+        let html = '';
+        issues.forEach(issue => {
+            const severityColor = getIssueSeverityColor(issue.severity);
+            const statusIcon = issue.resolved ? 'fa-check-circle text-green-500' : 'fa-exclamation-circle text-red-500';
+            
+            html += `
+                <div class="issue-item p-3 bg-white rounded-lg border border-gray-200 mb-2">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <span class="font-medium">${issue.type}</span>
+                            <span class="text-xs ${severityColor} ml-2 px-2 py-1 rounded-full">${getSeverityText(issue.severity)}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas ${statusIcon}"></i>
+                            <span class="text-xs text-gray-500">${formatDate(issue.issue_date)}</span>
+                        </div>
+                    </div>
+                    <div class="text-sm text-gray-600 mb-2">${issue.description}</div>
+                    ${issue.cause ? `<div class="text-xs text-gray-500 mb-1"><strong>السبب:</strong> ${issue.cause}</div>` : ''}
+                    ${issue.solution ? `<div class="text-xs text-green-600"><strong>الحل:</strong> ${issue.solution}</div>` : ''}
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-tools"></i>
+                <p>لا توجد مشاكل مسجلة</p>
+            </div>
+        `;
+    }
+}
+
+function updateRootCauseAnalysis(analysis) {
+    const container = document.getElementById('rootCauseAnalysis');
+    if (!container) return;
+    
+    if (analysis && analysis.issues_count > 0) {
+        let html = `
+            <div class="mb-3">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-medium">تحليل الأسباب الجذرية</span>
+                    <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">${analysis.issues_count} مشكلة</span>
+                </div>
+        `;
+        
+        if (analysis.common_causes && analysis.common_causes.length > 0) {
+            html += `<div class="space-y-1">`;
+            analysis.common_causes.forEach(cause => {
+                html += `
+                    <div class="flex items-center gap-2 text-sm">
+                        <i class="fas fa-exclamation-triangle text-yellow-500"></i>
+                        <span>${cause}</span>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+        
+        if (analysis.recommendations && analysis.recommendations.length > 0) {
+            html += `<div class="mt-3 pt-2 border-t border-yellow-200">`;
+            analysis.recommendations.forEach(rec => {
+                html += `
+                    <div class="flex items-center gap-2 text-sm text-green-700">
+                        <i class="fas fa-lightbulb"></i>
+                        <span>${rec}</span>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+        
+        html += `</div>`;
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = `
+            <p class="text-sm text-yellow-800 text-center">سيظهر تحليل الأسباب هنا عند تسجيل المشاكل</p>
+        `;
+    }
+}
+
+function getIssueSeverityColor(severity) {
+    const colors = {
+        'critical': 'bg-red-100 text-red-800',
+        'high': 'bg-orange-100 text-orange-800',
+        'medium': 'bg-yellow-100 text-yellow-800',
+        'low': 'bg-green-100 text-green-800'
+    };
+    return colors[severity] || 'bg-gray-100 text-gray-800';
+}
+
+function getSeverityText(severity) {
+    const texts = {
+        'critical': 'حرجة',
+        'high': 'عالية',
+        'medium': 'متوسطة',
+        'low': 'منخفضة'
+    };
+    return texts[severity] || 'غير محدد';
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('ar-EG');
+    } catch {
+        return dateString;
+    }
+}
+
+function showIssueReportModal() {
+    if (!currentOrderId) {
+        showToast('يرجى تحديد طلبية أولاً', 'error');
+        return;
+    }
+    
+    const issueOrderId = document.getElementById('issue_order_id');
+    if (issueOrderId) issueOrderId.value = currentOrderId;
+    
+    // تعيين تاريخ اليوم كافتراضي
+    const issueDate = document.getElementById('issue_date');
+    if (issueDate) {
+        const today = new Date().toISOString().split('T')[0];
+        issueDate.value = today;
+    }
+    
+    // إعادة تعيين النموذج
+    const form = document.getElementById('issueReportForm');
+    if (form) form.reset();
+    
+    showModal('issueReportModal');
+}
+
+// إدارة نموذج تسجيل المشاكل
+document.addEventListener('DOMContentLoaded', function() {
+    const issueForm = document.getElementById('issueReportForm');
+    if (issueForm) {
+        issueForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitIssueReport();
+        });
+    }
+});
+
+function submitIssueReport() {
+    const formData = new FormData();
+    formData.append('order_id', currentOrderId);
+    
+    const fields = ['issue_type', 'issue_severity', 'issue_description', 'issue_cause', 'issue_solution', 'issue_date', 'estimated_repair_time'];
+    fields.forEach(field => {
+        const element = document.getElementById(field);
+        if (element) formData.append(field, element.value);
+    });
+    
+    const resolved = document.querySelector('input[name="issue_resolved"]:checked');
+    if (resolved) {
+        formData.append('resolved', resolved.value);
+    }
+    
+    showMobileLoader();
+    fetch('/api/orders/report-issue', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Network error');
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showToast('تم تسجيل المشكلة بنجاح');
+            hideModal('issueReportModal');
+            loadPostInstallationIssues(currentOrderId);
+            refreshAutoEvaluation(); // تحديث التقييم التلقائي
+        } else {
+            showToast(data.error || 'خطأ في تسجيل المشكلة', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error reporting issue:', error);
+        showToast('خطأ في تسجيل المشكلة', 'error');
+    })
+    .finally(() => {
+        hideMobileLoader();
+    });
+}
+
+// ======================= //
+// 💰 PAYMENT MANAGEMENT
+// ======================= //
+
+function showPaymentModal(orderId, remaining) {
+    if (!orderId) {
+        showToast('معرف الطلبية غير صالح', 'error');
+        return;
+    }
+    
+    currentOrderId = orderId;
+    currentRemaining = parseFloat(remaining) || 0;
+    
+    const paymentOrderId = document.getElementById('payment_order_id');
+    const remainingAmount = document.getElementById('remainingAmount');
+    const paymentAmount = document.getElementById('payment_amount');
+    
+    if (paymentOrderId) paymentOrderId.value = orderId;
+    if (remainingAmount) remainingAmount.textContent = currentRemaining.toFixed(2);
+    if (paymentAmount) {
+        paymentAmount.value = '';
+        paymentAmount.max = currentRemaining;
+    }
+    
+    showModal('paymentModal');
+}
+
+// إدارة نموذج الدفع
+document.addEventListener('DOMContentLoaded', function() {
+    const paymentForm = document.getElementById('paymentForm');
+    if (paymentForm) {
+        paymentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitPayment();
+        });
+    }
+});
+
+function submitPayment() {
+    const paymentAmount = document.getElementById('payment_amount');
+    const amount = parseFloat(paymentAmount?.value) || 0;
+    
+    if (amount <= 0) {
+        showToast('يرجى إدخال مبلغ دفعة صحيح', 'error');
+        return;
+    }
+    
+    if (amount > currentRemaining) {
+        showToast('المبلغ المدخل أكبر من المبلغ المتبقي', 'error');
+        return;
+    }
+    
+    const formData = new FormData(document.getElementById('paymentForm'));
+    
+    showMobileLoader();
+    fetch(`/orders/payment/${currentOrderId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Network error');
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showToast('تم إضافة الدفعة بنجاح');
+            hideModal('paymentModal');
+            
+            // تحديث الصف
+            updateOrderRow(currentOrderId, {
+                new_paid: data.new_paid,
+                new_remaining: data.new_remaining,
+                is_paid: data.is_paid
+            });
+            
+            // تحديث الإحصائيات
+            updateStatisticsAfterPayment(data.new_paid, data.new_remaining);
+            
+        } else {
+            showToast(data.error || 'خطأ في إضافة الدفعة', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Payment error:', error);
+        showToast('خطأ في إضافة الدفعة', 'error');
+    })
+    .finally(() => {
+        hideMobileLoader();
+    });
+}
+
+function updateOrderRow(orderId, newData) {
+    const row = document.querySelector(`tr[data-order-id="${orderId}"], .md\\:hidden .order-card[data-order-id="${orderId}"]`);
+    
+    if (row) {
+        // إضافة تأثير التحديث
+        row.classList.add('order-row-updating');
+        
+        // تحديث المبلغ المدفوع
+        if (newData.new_paid !== undefined) {
+            const paidElements = row.querySelectorAll('.text-green-600');
+            paidElements.forEach(el => {
+                if (el.textContent.includes('دج') && el.textContent.includes('المدفوع')) {
+                    el.innerHTML = `<span class="font-bold text-lg text-green-600">${newData.new_paid.toFixed(0)}</span><span class="text-xs text-green-600 block">دج</span>`;
+                }
+            });
+        }
+        
+        // تحديث المبلغ المتبقي
+        if (newData.new_remaining !== undefined) {
+            const remainingElements = row.querySelectorAll('td:nth-child(8), .bg-gray-50 .text-center:nth-child(3)');
+            remainingElements.forEach(el => {
+                if (el.textContent.includes('دج')) {
+                    if (newData.new_remaining > 0) {
+                        el.innerHTML = `<span class="font-semibold text-red-600">${newData.new_remaining.toFixed(0)} دج</span>`;
+                    } else {
+                        el.innerHTML = `<span class="font-semibold text-green-600">0 دج</span>`;
+                    }
+                }
+            });
+            
+            // تحديث حالة الصحة المالية
+            const healthStatusElements = row.querySelectorAll('td:nth-child(10), .flex-col .bg-green-100, .flex-col .bg-red-100');
+            healthStatusElements.forEach(el => {
+                if (newData.new_remaining <= 0) {
+                    el.innerHTML = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                        <i class="fas fa-check-circle ml-1"></i>
+                        سليمة
+                    </span>`;
+                    row.dataset.healthStatus = 'healthy';
+                } else {
+                    el.innerHTML = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                        <i class="fas fa-exclamation-triangle ml-1"></i>
+                        بها ديون
+                    </span>`;
+                    row.dataset.healthStatus = 'debt';
+                }
+            });
+            
+            // إخفاء زر الدفع إذا تم السداد بالكامل
+            const paymentButton = row.querySelector('.payment-btn');
+            if (paymentButton && newData.new_remaining <= 0) {
+                paymentButton.style.display = 'none';
+            }
+        }
+        
+        // إزالة تأثير التحديث بعد فترة
+        setTimeout(() => {
+            row.classList.remove('order-row-updating');
+        }, 1000);
+        
+        // إعادة تطبيق الفلاتر
+        reapplyFiltersToRow(row);
+    }
+}
+
+function updateStatisticsAfterPayment(newPaid, newRemaining) {
+    // تحديث بطاقة المدفوع
+    const paidCard = document.querySelector('.bg-gradient-to-r.from-green-500.to-green-600 .text-2xl');
+    if (paidCard) {
+        const currentPaid = parseFloat(paidCard.textContent.replace(' دج', '')) || 0;
+        paidCard.textContent = (currentPaid + newPaid).toFixed(0) + ' دج';
+    }
+    
+    // تحديث بطاقة المتبقي
+    const remainingCard = document.querySelector('.bg-gradient-to-r.from-indigo-500.to-indigo-600 .text-2xl');
+    if (remainingCard) {
+        const currentRemaining = parseFloat(remainingCard.textContent.replace(' دج', '')) || 0;
+        remainingCard.textContent = (currentRemaining - newPaid).toFixed(0) + ' دج';
+    }
+    
+    // تحديث إحصائيات الطلبيات السليمة
+    updateOrdersHealthStats();
+}
+
+// ======================= //
+// 📊 HEALTH STATISTICS
+// ======================= //
+
+function updateOrdersHealthStats() {
+    const rows = document.querySelectorAll('#ordersTable tr[data-order-id], .order-card');
+    let healthyCount = 0;
+    let debtCount = 0;
+    let totalRealDebts = 0;
+    
+    const processedOrders = new Set();
+    
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const orderId = row.getAttribute('data-order-id');
+            
+            if (!processedOrders.has(orderId)) {
+                processedOrders.add(orderId);
+                
+                const realDebts = parseFloat(row.getAttribute('data-real-debts')) || 0;
+                const remainingAmount = parseFloat(row.getAttribute('data-remaining')) || 0;
+                
+                if (realDebts > 0) {
+                    debtCount++;
+                    totalRealDebts += realDebts;
+                } else {
+                    healthyCount++;
+                }
+            }
+        }
+    });
+    
+    document.getElementById('healthyOrdersCount').textContent = healthyCount;
+    document.getElementById('ordersDebtsTotal').textContent = Math.round(totalRealDebts) + ' دج';
+    document.getElementById('affectedOrdersCount').textContent = debtCount;
+}
+
+async function loadOrdersHealthStats() {
+    try {
+        const response = await fetch('/api/orders/health-stats');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                updateHealthStatsDisplay(data.stats);
+            }
+        }
+    } catch (error) {
+        console.error('❌ خطأ في تحميل إحصائيات الصحة:', error);
+        updateOrdersHealthStats();
+    }
+}
+
+function updateHealthStatsDisplay(stats) {
+    document.getElementById('healthyOrdersCount').textContent = stats.healthy_orders;
+    document.getElementById('ordersDebtsTotal').textContent = Math.round(stats.total_debts_amount) + ' دج';
+    document.getElementById('affectedOrdersCount').textContent = stats.debt_orders;
+    
+    const modalTotalDebts = document.getElementById('modalTotalDebts');
+    const modalAffectedOrders = document.getElementById('modalAffectedOrders');
+    const modalAverageDebt = document.getElementById('modalAverageDebt');
+    const modalDebtFreeOrders = document.getElementById('modalDebtFreeOrders');
+    
+    if (modalTotalDebts) modalTotalDebts.textContent = Math.round(stats.total_debts_amount) + ' دج';
+    if (modalAffectedOrders) modalAffectedOrders.textContent = stats.debt_orders;
+    if (modalAverageDebt) {
+        const avgDebt = stats.debt_orders > 0 ? stats.total_debts_amount / stats.debt_orders : 0;
+        modalAverageDebt.textContent = Math.round(avgDebt) + ' دج';
+    }
+    if (modalDebtFreeOrders) modalDebtFreeOrders.textContent = stats.healthy_orders;
+}
+
+// ======================= //
+// 📊 HISTORY SYSTEM
+// ======================= //
+
+async function showHistory(orderId) {
+    if (!orderId) {
+        showToast('معرف الطلبية غير صالح', 'error');
+        return;
+    }
+    
+    showMobileLoader();
+    
+    try {
+        const response = await fetch(`/orders/history/${orderId}`);
+        if (!response.ok) throw new Error('Network error');
+        
+        const historyData = await response.json();
+        
+        console.log('📊 بيانات السجل المستلمة:', historyData);
+        
+        const historyOrderId = document.getElementById('historyOrderId');
+        if (historyOrderId) historyOrderId.textContent = orderId;
+        
+        if (historyData.order_info) {
+            updateHistoryStatistics(historyData.order_info);
+        }
+        
+        window.originalHistoryData = historyData.history || [];
+        window.currentHistoryData = [...window.originalHistoryData];
+        
+        console.log(`✅ تم تحميل ${window.originalHistoryData.length} سجل`);
+        
+        try {
+            const debtsResponse = await fetch(`/api/orders/${orderId}/debts`);
+            if (debtsResponse.ok) {
+                const debtsData = await debtsResponse.json();
+                
+                if (debtsData.success && debtsData.debts_info.has_debts) {
+                    debtsData.debts_info.debt_records.forEach(debt => {
+                        const debtRecord = {
+                            change_type: "دين",
+                            details: `${debt.type}: ${debt.description} - المبلغ: ${debt.debt_amount} دج - المدفوع: ${debt.paid_amount} دج - المتبقي: ${debt.remaining} دج`,
+                            timestamp: debt.date,
+                            user: "النظام",
+                            debt_data: debt,
+                            is_debt: true
+                        };
+                        window.originalHistoryData.push(debtRecord);
+                    });
+                    
+                    console.log(`✅ تم إضافة ${debtsData.debts_info.debt_records.length} سجل ديون`);
+                }
+            }
+        } catch (debtError) {
+            console.error('Error loading debts:', debtError);
+        }
+        
+        updateUnifiedHistoryUI(window.currentHistoryData);
+        setupEnhancedHistoryFilters();
+        resetHistoryFilters(true);
+        startDebtMonitoring(orderId);
+        
+        showModal('historyModal');
+        
+    } catch (error) {
+        console.error('❌ خطأ في تحميل السجل:', error);
+        showToast('خطأ في تحميل السجل', 'error');
+        updateUnifiedHistoryUI([]);
+    } finally {
+        hideMobileLoader();
+    }
+}
+
+function updateHistoryStatistics(orderInfo) {
+    if (!orderInfo) return;
+    
+    const total = orderInfo.total_amount || 0;
+    const paid = orderInfo.paid_amount || 0;
+    const remaining = orderInfo.remaining_amount || 0;
+    const costs = orderInfo.total_costs || 0;
+    const profit = total - costs;
+    const profitPercentage = total > 0 ? (profit / total) * 100 : 0;
+    const costPercentage = total > 0 ? (costs / total) * 100 : 0;
+    
+    const elements = {
+        'historyTotalAmount': total.toFixed(0) + ' دج',
+        'historyPaidAmount': paid.toFixed(0) + ' دج',
+        'historyRemainingAmount': remaining.toFixed(0) + ' دج',
+        'historyCostAmount': costs.toFixed(0) + ' دج',
+        'historyProfitAmount': profit.toFixed(0) + ' دج',
+        'historyProfitPercentage': profitPercentage.toFixed(1) + '%',
+        'costPercentage': costPercentage.toFixed(1) + '%',
+        'profitPercentage': profitPercentage.toFixed(1) + '%'
+    };
+    
+    Object.keys(elements).forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = elements[id];
+    });
+    
+    const costBar = document.getElementById('costBar');
+    const profitBar = document.getElementById('profitBar');
+    
+    if (costBar) costBar.style.width = costPercentage + '%';
+    if (profitBar) {
+        profitBar.style.width = profitPercentage + '%';
+        profitBar.style.left = costPercentage + '%';
+    }
+}
+
+// ======================= //
+// 🔍 ENHANCED HISTORY FILTERS
+// ======================= //
+
+function setupEnhancedHistoryFilters() {
+    console.log('🎯 تهيئة الفلاتر الذكية المحسنة...');
+    
+    const userFilter = document.getElementById('historyUserFilter');
+    const typeFilter = document.getElementById('historyTypeFilter');
+    const searchText = document.getElementById('historySearchText');
+    const dateFrom = document.getElementById('historyDateFrom');
+    const dateTo = document.getElementById('historyDateTo');
+    
+    [userFilter, typeFilter, searchText, dateFrom, dateTo].forEach(element => {
+        if (element) {
+            element.replaceWith(element.cloneNode(true));
+        }
+    });
+    
+    const newUserFilter = document.getElementById('historyUserFilter');
+    const newTypeFilter = document.getElementById('historyTypeFilter');
+    const newSearchText = document.getElementById('historySearchText');
+    const newDateFrom = document.getElementById('historyDateFrom');
+    const newDateTo = document.getElementById('historyDateTo');
+    
+    if (newUserFilter) {
+        newUserFilter.addEventListener('change', function() {
+            console.log('👤 تغيير فلتر المستخدم:', this.value);
+            historyFiltersState.user = this.value;
+            applySmartHistoryFilters();
+        });
+    }
+    
+    if (newTypeFilter) {
+        newTypeFilter.addEventListener('change', function() {
+            console.log('🎯 تغيير فلتر النوع:', this.value);
+            historyFiltersState.type = this.value;
+            applySmartHistoryFilters();
+        });
+    }
+    
+    if (newSearchText) {
+        newSearchText.addEventListener('input', function() {
+            historyFiltersState.searchText = this.value.toLowerCase().trim();
+            applySmartHistoryFilters();
+        });
+    }
+    
+    if (newDateFrom) {
+        newDateFrom.addEventListener('change', function() {
+            historyFiltersState.dateFrom = this.value;
+            applySmartHistoryFilters();
+        });
+    }
+    
+    if (newDateTo) {
+        newDateTo.addEventListener('change', function() {
+            historyFiltersState.dateTo = this.value;
+            applySmartHistoryFilters();
+        });
+    }
+    
+    loadRealUsersForFilter();
+    console.log('✅ تم تهيئة الفلاتر بنجاح');
+}
+
+function applySmartHistoryFilters() {
+    console.log('🎯 تطبيق الفلاتر:', historyFiltersState);
+    
+    if (!window.originalHistoryData || window.originalHistoryData.length === 0) {
+        console.warn('⚠️ لا توجد بيانات أصلية للتصفية');
+        return;
+    }
+    
+    const filteredData = window.originalHistoryData.filter(item => {
+        if (historyFiltersState.user && historyFiltersState.user !== '') {
+            const userName = extractReliableUserName(item);
+            if (userName !== historyFiltersState.user) {
+                return false;
+            }
+        }
+        
+        if (historyFiltersState.type && historyFiltersState.type !== '') {
+            const itemType = getSmartItemType(item);
+            if (itemType !== historyFiltersState.type) {
+                return false;
+            }
+        }
+        
+        if (historyFiltersState.dateFrom || historyFiltersState.dateTo) {
+            const itemDate = new Date(item.timestamp);
+            
+            if (historyFiltersState.dateFrom) {
+                const fromDate = new Date(historyFiltersState.dateFrom);
+                if (itemDate < fromDate) return false;
+            }
+            
+            if (historyFiltersState.dateTo) {
+                const toDate = new Date(historyFiltersState.dateTo);
+                toDate.setHours(23, 59, 59, 999);
+                if (itemDate > toDate) return false;
+            }
+        }
+        
+        if (historyFiltersState.searchText && historyFiltersState.searchText.trim() !== '') {
+            const searchableText = [
+                item.details || '',
+                item.description || '',
+                item.change_type || '',
+                extractReliableUserName(item)
+            ].join(' ').toLowerCase();
+            
+            if (!searchableText.includes(historyFiltersState.searchText.toLowerCase())) {
+                return false;
+            }
+        }
+        
+        return true;
+    });
+    
+    console.log(`📊 نتائج الفلترة: ${filteredData.length} من ${window.originalHistoryData.length}`);
+    
+    window.currentHistoryData = filteredData;
+    updateUnifiedHistoryUI(window.currentHistoryData);
+    updateFilterStats(filteredData.length, window.originalHistoryData.length);
+}
+
+function getSmartItemType(item) {
+    if (!item) return 'other';
+    
+    const changeType = (item.change_type || '').toLowerCase();
+    const details = (item.details || '').toLowerCase();
+    
+    console.log('🔍 تحليل نوع العملية:', { changeType, details });
+    
+    if (changeType.includes('دين') || details.includes('دين') || item.is_debt || item.debt_data) {
+        return 'ديون';
+    }
+    else if (changeType.includes('مشكلة') || details.includes('مشكلة') || details.includes('إصلاح')) {
+        return 'مشكلة';
+    }
+    else if (changeType.includes('دفعة') || details.includes('دفعة') || details.includes('دفع')) {
+        return 'دفعة';
+    }
+    else if (changeType.includes('مصروف') || details.includes('مصروف') || details.includes('تكلفة')) {
+        return 'مصروف';
+    }
+    else if (changeType.includes('نقل') || details.includes('نقل') || details.includes('شحن')) {
+        return 'نقل';
+    }
+    else if (changeType.includes('تعيين') || details.includes('عامل') || details.includes('عمال')) {
+        return 'تعيين';
+    }
+    else if (changeType.includes('تعديل') || details.includes('تعديل') || details.includes('تغيير')) {
+        return 'تعديل';
+    }
+    else if (changeType.includes('إنشاء') || details.includes('إنشاء') || details.includes('جديد')) {
+        return 'إنشاء';
+    }
+    else if (changeType.includes('حذف') || details.includes('حذف') || details.includes('مسح')) {
+        return 'حذف';
+    }
+    else if (changeType.includes('تقييم') || details.includes('تقييم') || details.includes('تقييم')) {
+        return 'تقييم';
+    }
+    else {
+        return 'أخرى';
+    }
+}
+
+function updateFilterStats(filteredCount, totalCount) {
+    const statsElement = document.getElementById('filterStats');
+    if (!statsElement) return;
+    
+    if (filteredCount === totalCount) {
+        statsElement.textContent = `عرض ${totalCount} عملية`;
+        statsElement.className = 'text-green-600 font-medium text-xs';
+    } else {
+        const percentage = ((filteredCount / totalCount) * 100).toFixed(1);
+        statsElement.textContent = `عرض ${filteredCount} من ${totalCount} عملية (${percentage}%)`;
+        statsElement.className = 'text-blue-600 font-medium text-xs';
+    }
+}
+
+function resetHistoryFilters(silent = false) {
+    console.log('🔄 إعادة تعيين الفلاتر');
+    
+    Object.keys(historyFiltersState).forEach(key => {
+        historyFiltersState[key] = '';
+    });
+    
+    const elements = {
+        'historyUserFilter': '',
+        'historyTypeFilter': '',
+        'historySearchText': '',
+        'historyDateFrom': '',
+        'historyDateTo': ''
+    };
+    
+    Object.keys(elements).forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.value = elements[id];
+    });
+    
+    if (window.originalHistoryData) {
+        window.currentHistoryData = [...window.originalHistoryData];
+        updateUnifiedHistoryUI(window.currentHistoryData);
+        updateFilterStats(window.currentHistoryData.length, window.originalHistoryData.length);
+    }
+    
+    if (!silent) {
+        showToast('تم مسح جميع الفلاتر وعرض جميع السجلات', 'success');
+    }
+    
+    console.log('✅ تم إعادة التعيين بنجاح');
+}
+
+// ======================= //
+// 🎯 ENHANCED HISTORY DISPLAY
+// ======================= //
+
+function updateUnifiedHistoryUI(history) {
+    const container = document.getElementById('unifiedHistoryContent');
+    const statsElement = document.getElementById('historyStats');
+    
+    if (!container) return;
+    
+    const displayData = Array.isArray(history) ? history : [];
+    
+    if (displayData.length > 0) {
+        let html = '';
+        
+        displayData.forEach((item, index) => {
+            const userName = extractReliableUserName(item);
+            const itemType = getSmartItemType(item);
+            const itemIcon = getSmartHistoryIcon(item);
+            const itemColor = getSmartHistoryColor(itemType);
+            
+            if (item.change_type === "دين" || item.is_debt || item.debt_data) {
+                const debt = item.debt_data;
+                const status = debt.status === 'paid' ? 'مدفوع' : 'غير مدفوع';
+                const statusColor = debt.status === 'paid' ? 'text-green-600' : 'text-red-600';
+                const statusBadge = debt.status === 'paid' ? 'badge-success' : 'badge-danger';
+                
+                html += `
+                    <div class="history-item history-item-debt">
+                        <div class="history-content">
+                            <div class="history-icon">
+                                <i class="fas fa-file-invoice-dollar ${statusColor}"></i>
+                            </div>
+                            <div class="history-details">
+                                <div class="history-header">
+                                    <div class="history-title">دين ${debt.type}</div>
+                                    <div class="history-date">${formatHistoryDate(item.timestamp)}</div>
+                                </div>
+                                <div class="history-description">
+                                    <strong>${debt.description}</strong>
+                                    <div class="grid grid-cols-3 gap-2 mt-2 text-xs">
+                                        <div class="text-center">
+                                            <div class="text-gray-600">المبلغ</div>
+                                            <div class="font-bold text-red-600">${debt.debt_amount} دج</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="text-gray-600">المدفوع</div>
+                                            <div class="font-bold text-green-600">${debt.paid_amount} دج</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="text-gray-600">المتبقي</div>
+                                            <div class="font-bold text-orange-600">${debt.remaining} دج</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="history-footer">
+                                    <div class="history-user">
+                                        <i class="fas fa-user"></i>
+                                        النظام
+                                    </div>
+                                    <span class="history-badge ${statusBadge}">
+                                        ${status}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } 
+            else if (itemType === 'مشكلة') {
+                const severity = item.severity || 'medium';
+                const severityColor = getIssueSeverityColor(severity);
+                const resolved = item.resolved || false;
+                const statusIcon = resolved ? 'fa-check-circle text-green-500' : 'fa-exclamation-circle text-red-500';
+                
+                html += `
+                    <div class="history-item history-item-issue">
+                        <div class="history-content">
+                            <div class="history-icon">
+                                <i class="fas fa-exclamation-triangle text-orange-500"></i>
+                            </div>
+                            <div class="history-details">
+                                <div class="history-header">
+                                    <div class="history-title">مشكلة ${item.issue_type}</div>
+                                    <div class="history-date">${formatHistoryDate(item.timestamp)}</div>
+                                </div>
+                                <div class="history-description">
+                                    <strong>${item.issue_description}</strong>
+                                    <div class="flex items-center gap-2 mt-2">
+                                        <span class="text-xs ${severityColor} px-2 py-1 rounded-full">${getSeverityText(severity)}</span>
+                                        <i class="fas ${statusIcon}"></i>
+                                    </div>
+                                    ${item.issue_cause ? `<div class="text-xs text-gray-600 mt-1"><strong>السبب:</strong> ${item.issue_cause}</div>` : ''}
+                                    ${item.issue_solution ? `<div class="text-xs text-green-600 mt-1"><strong>الحل:</strong> ${item.issue_solution}</div>` : ''}
+                                </div>
+                                <div class="history-footer">
+                                    <div class="history-user">
+                                        <i class="fas fa-user"></i>
+                                        ${userName}
+                                    </div>
+                                    <span class="history-badge ${resolved ? 'badge-success' : 'badge-warning'}">
+                                        ${resolved ? 'تم الإصلاح' : 'قيد المعالجة'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            else {
+                html += `
+                    <div class="history-item ${itemColor}" 
+                         data-type="${itemType}" 
+                         data-user="${userName}"
+                         data-date="${item.timestamp}">
+                        <div class="history-content">
+                            <div class="history-icon">
+                                <i class="fas ${itemIcon}"></i>
+                            </div>
+                            <div class="history-details">
+                                <div class="history-header">
+                                    <div class="history-title">${getActionTitle(item)}</div>
+                                    <div class="history-date">${formatHistoryDate(item.timestamp)}</div>
+                                </div>
+                                <div class="history-description">${cleanDescription(item.details || item.description)}</div>
+                                <div class="history-footer">
+                                    <div class="history-user">
+                                        <i class="fas fa-user"></i>
+                                        بواسطة: ${userName}
+                                    </div>
+                                    <span class="history-badge ${getTypeBadgeColor(itemType)}">
+                                        ${getTypeArabicName(itemType)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        container.innerHTML = html;
+        if (statsElement) {
+            statsElement.textContent = `${displayData.length} عملية`;
+        }
+        
+        if (window.originalHistoryData) {
+            updateFilterStats(displayData.length, window.originalHistoryData.length);
+        }
+        
+    } else {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>لا توجد سجلات للعرض</p>
+                ${window.originalHistoryData && window.originalHistoryData.length > 0 ? 
+                  '<p class="text-sm text-gray-400 mt-1">جرب تعديل الفلاتر لعرض المزيد من النتائج</p>' : 
+                  '<p class="text-sm text-gray-400 mt-1">لا توجد سجلات في قاعدة البيانات</p>'}
+            </div>
+        `;
+        if (statsElement) {
+            statsElement.textContent = '0 عملية';
+        }
+        if (window.originalHistoryData) {
+            updateFilterStats(0, window.originalHistoryData.length);
+        }
+    }
+}
+
+function getActionTitle(item) {
+    const changeType = item.change_type || '';
+    if (changeType) return changeType;
+    
+    const type = getSmartItemType(item);
+    const typeTitles = {
+        'دفعة': 'دفعة مالية',
+        'مصروف': 'مصروف',
+        'نقل': 'تكلفة نقل',
+        'تعيين': 'تعيين عامل',
+        'تعديل': 'تعديل',
+        'إنشاء': 'إنشاء طلبية',
+        'حذف': 'حذف',
+        'تقييم': 'تقييم أداء',
+        'ديون': 'سجل الديون',
+        'مشكلة': 'مشكلة بعد التركيب'
+    };
+    
+    return typeTitles[type] || 'عملية';
+}
+
+function getSmartHistoryIcon(item) {
+    const type = getSmartItemType(item);
+    const icons = {
+        'دفعة': 'fa-money-bill-wave',
+        'مصروف': 'fa-receipt',
+        'نقل': 'fa-truck',
+        'تعيين': 'fa-user-plus',
+        'تعديل': 'fa-edit',
+        'إنشاء': 'fa-plus-circle',
+        'حذف': 'fa-trash',
+        'تقييم': 'fa-star',
+        'ديون': 'fa-file-invoice-dollar',
+        'مشكلة': 'fa-exclamation-triangle'
+    };
+    return icons[type] || 'fa-history';
+}
+
+function getSmartHistoryColor(type) {
+    const colors = {
+        'دفعة': 'history-item-payment',
+        'مصروف': 'history-item-expense',
+        'نقل': 'history-item-transport',
+        'تعيين': 'history-item-assignment',
+        'تعديل': 'history-item-modification',
+        'إنشاء': 'history-item-creation',
+        'حذف': 'history-item-deletion',
+        'تقييم': 'history-item-evaluation',
+        'ديون': 'history-item-debt',
+        'مشكلة': 'history-item-issue'
+    };
+    return colors[type] || 'history-item-modification';
+}
+
+function getTypeBadgeColor(type) {
+    const colors = {
+        'دفعة': 'badge-success',
+        'مصروف': 'badge-error',
+        'نقل': 'badge-warning',
+        'تعيين': 'badge-info',
+        'تعديل': 'badge-primary',
+        'إنشاء': 'badge-success',
+        'حذف': 'badge-error',
+        'تقييم': 'badge-warning',
+        'ديون': 'badge-danger',
+        'مشكلة': 'badge-danger'
+    };
+    return colors[type] || 'badge-primary';
+}
+
+function getTypeArabicName(type) {
+    const names = {
+        'دفعة': 'دفعة',
+        'مصروف': 'مصروف',
+        'نقل': 'نقل',
+        'تعيين': 'تعيين',
+        'تعديل': 'تعديل',
+        'إنشاء': 'إنشاء',
+        'حذف': 'حذف',
+        'تقييم': 'تقييم',
+        'ديون': 'ديون',
+        'مشكلة': 'مشكلة'
+    };
+    return names[type] || 'عملية';
+}
+
+function extractReliableUserName(item) {
+    if (!item) return 'النظام';
+    
+    if (item.user && item.user !== 'النظام' && item.user !== 'undefined' && item.user !== 'null') {
+        return item.user;
+    }
+    
+    if (item.user_name && item.user_name !== 'النظام') {
+        return item.user_name;
+    }
+    
+    if (item.details) {
+        const userMatch = item.details.match(/بواسطة[:\s]*([^.-]+)/);
+        if (userMatch && userMatch[1]) {
+            return userMatch[1].trim();
+        }
+    }
+    
+    return 'النظام';
+}
+
+function cleanDescription(description) {
+    if (!description) return '';
+    return description.replace(/بواسطة[^.]*\.?/g, '').trim();
+}
+
+function formatHistoryDate(dateString) {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('ar-EG') + ' ' + date.toLocaleTimeString('ar-EG', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch {
+        return dateString;
+    }
+}
+
+async function loadRealUsersForFilter() {
+    try {
+        const userFilter = document.getElementById('historyUserFilter');
+        if (!userFilter) return;
+
+        const allUsersOption = userFilter.querySelector('option[value=""]');
+        userFilter.innerHTML = '';
+        if (allUsersOption) {
+            userFilter.appendChild(allUsersOption);
+        } else {
+            userFilter.innerHTML = '<option value="">جميع المستخدمين</option>';
+        }
+
+        const historyItems = document.querySelectorAll('.history-item');
+        const usersFromHistory = new Set();
+        
+        historyItems.forEach(item => {
+            const user = item.getAttribute('data-user');
+            if (user && user !== 'النظام' && user !== 'undefined' && user !== 'null') {
+                usersFromHistory.add(user);
+            }
+        });
+
+        usersFromHistory.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user;
+            option.textContent = user;
+            userFilter.appendChild(option);
+        });
+
+        console.log('✅ تم تحميل فلتر المستخدمين:', Array.from(usersFromHistory));
+
+    } catch (error) {
+        console.error('❌ خطأ في تحميل فلتر المستخدمين:', error);
+    }
+}
+
+// ======================= //
+// 📎 ATTACHMENTS SYSTEM
+// ======================= //
+
+// ======================= //
+// 🚀 INITIALIZATION
+// ======================= //
+
+function showAttachments(orderId) {
+    if (!orderId) {
+        showToast('معرف الطلبية غير صالح', 'error');
+        return;
+    }
+    
+    currentOrderId = orderId;
+    const attachmentsOrderId = document.getElementById('attachmentsOrderId');
+    if (attachmentsOrderId) attachmentsOrderId.textContent = orderId;
+    
+    // ✅ إعادة تعيين الحقول عند فتح النافذة
+    resetAttachmentModal();
+    
+    loadCurrentAttachments(orderId);
+    loadAttachmentNotes(orderId);
+    setupAttachmentsSearch();
+    showModal('attachmentsModal');
+}
+// ✅ دالة لإعادة تعيين النافذة
+function resetAttachmentModal() {
+    // إعادة تعيين حقل البحث
+    const searchInput = document.getElementById('attachmentsSearch');
+    if (searchInput) searchInput.value = '';
+    
+    // إعادة تعيين حقل التسمية
+    const labelInput = document.getElementById('attachmentLabel');
+    if (labelInput) labelInput.value = '';
+    
+    // إعادة تعيين حقل الملاحظات
+    const notesInput = document.getElementById('attachmentNotes');
+    if (notesInput) {
+        notesInput.value = '';
+        document.getElementById('notesCounter').textContent = '0/500';
+    }
+    
+    // إخفاء معاينة الرفع
+    const uploadPreview = document.getElementById('uploadPreview');
+    const labelSection = document.getElementById('attachmentLabelSection');
+    if (uploadPreview) uploadPreview.classList.add('hidden');
+    if (labelSection) labelSection.classList.add('hidden');
+    
+    // مسح الملفات المختارة
+    currentUploadedFiles = [];
+    const fileInput = document.getElementById('newFileInput');
+    if (fileInput) fileInput.value = '';
+}
+
+// تحديث دالة التهيئة
+document.addEventListener('DOMContentLoaded', function() {
+    setupNotesCounter();
+    setupLabelCounter();
+});
+
+function loadCurrentAttachments(orderId) {
+    if (!orderId) {
+        console.error('❌ معرف الطلبية غير صالح');
+        return;
+    }
+    
+    showMobileLoader();
+    
+    fetch(`/api/orders/${orderId}/attachments`)
+        .then(response => {
+            if (!response.ok) throw new Error(`خطأ في الشبكة: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            currentAttachmentsData = data.attachments || [];
+            updateAttachmentsGrid(currentAttachmentsData);
+        })
+        .catch(error => {
+            console.error('❌ خطأ في تحميل المرفقات:', error);
+            showToast('❌ خطأ في تحميل المرفقات', 'error');
+        })
+        .finally(() => {
+            hideMobileLoader();
+        });
+}
+
+// ======================= //
+// 🏷️ ENHANCED ATTACHMENTS MANAGEMENT SYSTEM
+// ======================= //
+
+let currentAttachmentsData = [];
+
+function updateAttachmentsGrid(attachments) {
+    const container = document.getElementById('currentAttachmentsList');
+    const countElement = document.getElementById('attachmentsCount');
+    
+    if (!container || !countElement) return;
+    
+    currentAttachmentsData = attachments || [];
+    
+    if (currentAttachmentsData.length > 0) {
+        countElement.textContent = currentAttachmentsData.length;
+        
+        let html = currentAttachmentsData.map(attachment => {
+            const isImage = attachment.file_type === 'image';
+            const isVideo = attachment.file_type === 'video';
+            const isPDF = attachment.file_type === 'pdf';
+            const fileSize = formatFileSize(attachment.file_size);
+            
+            // ✅ استخدام التسمية المخصصة فقط
+            const displayLabel = attachment.label || 'بدون تسمية';
+            const hasCustomLabel = attachment.has_custom_label;
+            
+            return `
+                <div class="attachment-card" 
+                     data-label="${displayLabel}"
+                     data-uploader="${attachment.captured_by}"
+                     data-file-type="${attachment.file_type}">
+                    
+                    <!-- المعاينة -->
+                    <div class="attachment-preview">
+                        ${isImage ? `
+                            <img src="/api/attachments/${attachment.id}/view" 
+                                 alt="${displayLabel}"
+                                 class="attachment-thumbnail"
+                                 onclick="openFullScreenViewer(${attachment.id}, '${displayLabel.replace(/'/g, "\\'")}', 'image')">
+                        ` : isVideo ? `
+                            <div class="attachment-video-preview" onclick="openFullScreenViewer(${attachment.id}, '${displayLabel.replace(/'/g, "\\'")}', 'video')">
+                                <div class="video-thumbnail">
+                                    <i class="fas fa-play-circle video-play-icon"></i>
+                                    <div class="video-duration">فيديو</div>
+                                </div>
+                            </div>
+                        ` : isPDF ? `
+                            <div class="attachment-icon pdf" onclick="openFullScreenViewer(${attachment.id}, '${displayLabel.replace(/'/g, "\\'")}', 'pdf')">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                        ` : `
+                            <div class="attachment-icon file" onclick="openFullScreenViewer(${attachment.id}, '${displayLabel.replace(/'/g, "\\'")}', 'file')">
+                                <i class="fas fa-file"></i>
+                            </div>
+                        `}
+                        
+                        <div class="attachment-overlay">
+                            <button onclick="openFullScreenViewer(${attachment.id}, '${displayLabel.replace(/'/g, "\\'")}', '${attachment.file_type}')" 
+                                    class="overlay-btn view" title="معاينة">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <a href="/api/attachments/${attachment.id}/download" class="overlay-btn download" title="تحميل">
+                                <i class="fas fa-download"></i>
+                            </a>
+                            <button onclick="showEditLabelModal(${attachment.id}, '${displayLabel.replace(/'/g, "\\'")}')" class="overlay-btn edit" title="تعديل التسمية">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteAttachmentPermanently(${attachment.id})" class="overlay-btn delete" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- المعلومات المحسنة - بدون اسم الملف الأصلي -->
+                    <div class="attachment-info">
+                        <!-- ✅ التسمية المخصصة -->
+                        <div class="attachment-label-container">
+                            <div class="attachment-label ${hasCustomLabel ? 'has-custom-label' : 'default-label'}" 
+                                 title="${displayLabel}">
+                                ${displayLabel}
+                                ${hasCustomLabel ? '<i class="fas fa-tag ml-1 text-xs text-blue-500"></i>' : ''}
+                            </div>
+                            ${hasCustomLabel ? `
+                                <button onclick="showEditLabelModal(${attachment.id}, '${displayLabel.replace(/'/g, "\\'")}')" 
+                                        class="edit-label-btn" title="تعديل التسمية">
+                                    <i class="fas fa-edit text-xs"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                        
+                        <!-- ✅ معلومات الملف (الحجم فقط) -->
+                        <div class="attachment-file-info">
+                            <div class="file-type-badge">
+                                <i class="fas ${getFileTypeIcon(attachment.file_type)} ml-1"></i>
+                                ${getFileTypeName(attachment.file_type)}
+                            </div>
+                            <div class="file-size-badge">
+                                ${fileSize}
+                            </div>
+                        </div>
+                        
+                        <!-- ✅ معلومات الرفع -->
+                        <div class="attachment-upload-info">
+                            <div class="attachment-uploader">
+                                <i class="fas fa-user ml-1 text-xs text-gray-500"></i>
+                                ${attachment.captured_by}
+                            </div>
+                            <div class="upload-date">
+                                <i class="fas fa-clock ml-1 text-xs text-gray-500"></i>
+                                ${formatDate(attachment.captured_at)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        container.innerHTML = html;
+    } else {
+        countElement.textContent = '0';
+        container.innerHTML = `
+            <div class="empty-attachments">
+                <i class="fas fa-folder-open text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500">لا توجد مرفقات حالية</p>
+                <p class="text-sm text-gray-400 mt-1">استخدم قسم الرفع أعلاه لإضافة المرفقات الأولى</p>
+            </div>
+        `;
+    }
+}
+
+// تحديث دوال الأيقونات لدعم الفيديو
+function getFileTypeIcon(fileType) {
+    const icons = {
+        'image': 'fa-image',
+        'video': 'fa-video',
+        'pdf': 'fa-file-pdf',
+        'document': 'fa-file-word',
+        'other': 'fa-file'
+    };
+    return icons[fileType] || 'fa-file';
+}
+
+function getFileTypeName(fileType) {
+    const names = {
+        'image': 'صورة',
+        'video': 'فيديو',
+        'pdf': 'PDF',
+        'document': 'مستند',
+        'other': 'ملف'
+    };
+    return names[fileType] || 'ملف';
+}
+
+// ======================= //
+// 📝 ENHANCED ATTACHMENT NOTES SYSTEM - FIXED
+// ======================= //
+
+async function saveAttachmentNotes() {
+    const notesInput = document.getElementById('attachmentNotes');
+    const notes = notesInput ? notesInput.value.trim() : '';
+    
+    if (!currentOrderId) {
+        showToast('معرف الطلبية غير صالح', 'error');
+        return;
+    }
+    
+    // إذا كانت الملاحظات فارغة، لا نحتاج لحفظ شيء
+    if (!notes) {
+        showToast('لا توجد ملاحظات للحفظ', 'info');
+        return;
+    }
+    
+    showMobileLoader();
+    
+    try {
+        const response = await fetch('/api/orders/save-attachment-notes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                order_id: currentOrderId,
+                notes: notes 
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('تم حفظ الملاحظات بنجاح');
+            notesInput.value = '';
+            document.getElementById('notesCounter').textContent = '0/500';
+            loadAttachmentNotes(currentOrderId); // إعادة تحميل الملاحظات
+        } else {
+            showToast(data.error || 'خطأ في حفظ الملاحظات', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving attachment notes:', error);
+        showToast('خطأ في حفظ الملاحظات', 'error');
+    } finally {
+        hideMobileLoader();
+    }
+}
+
+
+async function loadAttachmentNotes(orderId) {
+    try {
+        const response = await fetch(`/api/orders/${orderId}/attachment-notes`);
+        if (!response.ok) throw new Error('Network error');
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            updateAttachmentNotesUI(data.notes);
+        } else {
+            console.error('Error loading notes:', data.error);
+        }
+    } catch (error) {
+        console.error('Error loading attachment notes:', error);
+    }
+}
+
+function validateFilesBeforeUpload(files) {
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_TOTAL_SIZE = 40 * 1024 * 1024; // 40MB
+    
+    let totalSize = 0;
+    let invalidFiles = [];
+    
+    for (let file of files) {
+        if (file.size > MAX_FILE_SIZE) {
+            invalidFiles.push(`${file.name} (${(file.size/1024/1024).toFixed(1)}MB)`);
+        }
+        totalSize += file.size;
+    }
+    
+    if (invalidFiles.length > 0) {
+        return {
+            valid: false,
+            error: `الملفات التالية كبيرة جداً (الحد: 10MB): ${invalidFiles.join(', ')}`
+        };
+    }
+    
+    if (totalSize > MAX_TOTAL_SIZE) {
+        return {
+            valid: false,
+            error: `إجمالي حجم الملفات (${(totalSize/1024/1024).toFixed(1)}MB) يتجاوز الحد المسموح (40MB)`
+        };
+    }
+    
+    return { valid: true };
+}
+
+// تحديث دالة handleFileSelection
+function handleFileSelection(event) {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+    
+    // التحقق من الحجم قبل المعالجة
+    const validation = validateFilesBeforeUpload(files);
+    if (!validation.valid) {
+        showToast(validation.error, 'error');
+        event.target.value = ''; // مسح الاختيار
+        return;
+    }
+    
+    currentUploadedFiles = files;
+    showUploadPreview(files);
+}
+// ======================= //
+// 🏷️ EDIT ATTACHMENT LABEL SYSTEM
+// ======================= //
+
+function showEditLabelModal(attachmentId, currentLabel) {
+    const modalHtml = `
+        <div id="editLabelModal" class="modal active">
+            <div class="modal-content modern-modal compact">
+                <div class="modal-header">
+                    <h3 class="text-lg font-bold text-gray-900">✏️ تعديل تسمية المرفق</h3>
+                    <button type="button" onclick="hideEditLabelModal()" class="modal-close-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="newAttachmentLabel" class="form-label">التسمية الجديدة</label>
+                        <input type="text" id="newAttachmentLabel" class="form-input" 
+                               value="${currentLabel.replace(/'/g, "&apos;")}" 
+                               placeholder="أدخل التسمية الجديدة..." 
+                               maxlength="100">
+                        <div class="flex justify-between items-center mt-1">
+                            <span class="text-xs text-gray-500">سيتم استخدام هذه التسمية بدلاً من اسم الملف</span>
+                            <span id="editLabelCounter" class="text-xs text-gray-500">${currentLabel.length}/100</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" onclick="hideEditLabelModal()" class="btn-secondary">
+                        إلغاء
+                    </button>
+                    <button type="button" onclick="updateAttachmentLabel(${attachmentId})" class="btn-primary">
+                        <i class="fas fa-save ml-2"></i>
+                        حفظ التسمية
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // إضافة النافذة إلى DOM
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHtml;
+    document.body.appendChild(modalContainer);
+    
+    // إعداد عداد الأحرف
+    const labelInput = document.getElementById('newAttachmentLabel');
+    const counter = document.getElementById('editLabelCounter');
+    
+    if (labelInput && counter) {
+        labelInput.addEventListener('input', function() {
+            const length = this.value.length;
+            counter.textContent = `${length}/100`;
+            
+            if (length > 100) {
+                counter.classList.add('text-red-500');
+            } else {
+                counter.classList.remove('text-red-500');
+            }
+        });
+        
+        labelInput.focus();
+        labelInput.select();
+    }
+}
+
+async function updateAttachmentLabel(attachmentId) {
+    const newLabelInput = document.getElementById('newAttachmentLabel');
+    const newLabel = newLabelInput ? newLabelInput.value.trim() : '';
+    
+    if (!newLabel) {
+        showToast('يرجى إدخال تسمية للمرفق', 'warning');
+        return;
+    }
+    
+    showMobileLoader();
+    
+    try {
+        const response = await fetch(`/api/attachments/${attachmentId}/update-label`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ label: newLabel })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('تم تحديث تسمية المرفق بنجاح');
+            hideEditLabelModal();
+            loadCurrentAttachments(currentOrderId);
+        } else {
+            showToast(data.error || 'خطأ في تحديث التسمية', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating attachment label:', error);
+        showToast('خطأ في تحديث التسمية', 'error');
+    } finally {
+        hideMobileLoader();
+    }
+}
+
+function hideEditLabelModal() {
+    const modal = document.getElementById('editLabelModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// ======================= //
+// 📝 ENHANCED ATTACHMENT NOTES SYSTEM
+// ======================= //
+
+async function loadAttachmentNotes(orderId) {
+    try {
+        const response = await fetch(`/api/orders/${orderId}/attachment-notes`);
+        if (!response.ok) throw new Error('Network error');
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            updateAttachmentNotesUI(data.notes);
+        }
+    } catch (error) {
+        console.error('Error loading attachment notes:', error);
+    }
+}
+
+function updateAttachmentNotesUI(notes) {
+    const container = document.getElementById('savedNotesDisplay');
+    if (!container) return;
+    
+    if (notes && notes.length > 0) {
+        let html = `
+            <div class="notes-header">
+                <h6 class="notes-title">
+                    <i class="fas fa-sticky-note ml-1"></i>
+                    الملاحظات المحفوظة
+                </h6>
+                <div class="notes-header-actions">
+                    <span class="notes-count">${notes.length} ملاحظة</span>
+                    <button onclick="showAddNoteModal()" class="notes-add-btn" title="إضافة ملاحظة جديدة">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="notes-list">
+        `;
+        
+        notes.forEach(note => {
+            html += `
+                <div class="note-item" data-note-id="${note.id}">
+                    <div class="note-content">
+                        <p class="note-text">${note.content}</p>
+                        <div class="note-meta">
+                            <span class="note-author">
+                                <i class="fas fa-user ml-1"></i>
+                                ${note.created_by}
+                            </span>
+                            <span class="note-date">
+                                <i class="fas fa-clock ml-1"></i>
+                                ${note.created_at}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="note-actions">
+                        <button onclick="deleteAttachmentNote(${note.id})" class="note-delete-btn" title="حذف الملاحظة">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+            </div>
+            <div class="notes-actions">
+                <button onclick="showAddNoteModal()" class="btn-outline w-full mb-2">
+                    <i class="fas fa-plus ml-2"></i>
+                    إضافة ملاحظة جديدة
+                </button>
+                ${notes.length > 1 ? `
+                <button onclick="clearAllAttachmentNotes()" class="btn-secondary w-full">
+                    <i class="fas fa-trash ml-2"></i>
+                    مسح جميع الملاحظات
+                </button>
+                ` : ''}
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = `
+            <div class="empty-notes">
+                <i class="fas fa-sticky-note text-gray-300 text-2xl mb-2"></i>
+                <p class="text-sm text-gray-500">لا توجد ملاحظات محفوظة</p>
+                <button onclick="showAddNoteModal()" class="btn-outline mt-3">
+                    <i class="fas fa-plus ml-2"></i>
+                    إضافة أول ملاحظة
+                </button>
+            </div>
+        `;
+    }
+}
+
+// ======================= //
+// 🛠️ UTILITY FUNCTIONS
+// ======================= //
+
+function getFileTypeIcon(fileType) {
+    const icons = {
+        'image': 'fa-image',
+        'pdf': 'fa-file-pdf',
+        'video': 'fa-file-video',
+        'document': 'fa-file-word',
+        'other': 'fa-file'
+    };
+    return icons[fileType] || 'fa-file';
+}
+
+function getFileTypeName(fileType) {
+    const names = {
+        'image': 'صورة',
+        'pdf': 'PDF',
+        'video': 'فيديو',
+        'document': 'مستند',
+        'other': 'ملف'
+    };
+    return names[fileType] || 'ملف';
+}
+
+// تحديث دالة البحث بعد إزالة اسم الملف
+function filterAttachments(searchTerm) {
+    const attachmentCards = document.querySelectorAll('.attachment-card');
+    let visibleCount = 0;
+    
+    attachmentCards.forEach(card => {
+        const label = card.getAttribute('data-label') || '';
+        const uploader = card.getAttribute('data-uploader') || '';
+        
+        const searchableText = (label + ' ' + uploader).toLowerCase();
+        
+        if (searchableText.includes(searchTerm) || searchTerm === '') {
+            card.style.display = 'block';
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+    
+    // تحديث العداد
+    const countElement = document.getElementById('attachmentsCount');
+    if (countElement && searchTerm) {
+        countElement.textContent = `${visibleCount} من ${currentAttachmentsData.length}`;
+    } else if (countElement) {
+        countElement.textContent = currentAttachmentsData.length;
+    }
+}
+function showAddNoteModal() {
+    const modalHtml = `
+        <div id="addNoteModal" class="modal active">
+            <div class="modal-content modern-modal compact">
+                <div class="modal-header">
+                    <h3 class="text-lg font-bold text-gray-900">📝 إضافة ملاحظة جديدة</h3>
+                    <button type="button" onclick="hideAddNoteModal()" class="modal-close-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="newNoteContent" class="form-label">نص الملاحظة</label>
+                        <textarea id="newNoteContent" rows="4" class="form-textarea" 
+                                  placeholder="اكتب ملاحظتك هنا..." maxlength="500"></textarea>
+                        <div class="flex justify-between items-center mt-1">
+                            <span class="text-xs text-gray-500">الملاحظات تساعد في تنظيم العمل</span>
+                            <span id="newNoteCounter" class="text-xs text-gray-500">0/500</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" onclick="hideAddNoteModal()" class="btn-secondary">
+                        إلغاء
+                    </button>
+                    <button type="button" onclick="saveNewAttachmentNote()" class="btn-primary">
+                        <i class="fas fa-save ml-2"></i>
+                        حفظ الملاحظة
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHtml;
+    document.body.appendChild(modalContainer);
+    
+    // إعداد عداد الأحرف
+    setupNoteCounter('newNoteContent', 'newNoteCounter');
+    
+    // التركيز على حقل النص
+    const noteInput = document.getElementById('newNoteContent');
+    if (noteInput) noteInput.focus();
+}
+// ✅ دالة مساعدة لإعداد عداد الأحرف
+function setupNoteCounter(textareaId, counterId) {
+    const textarea = document.getElementById(textareaId);
+    const counter = document.getElementById(counterId);
+    
+    if (textarea && counter) {
+        textarea.addEventListener('input', function() {
+            const length = this.value.length;
+            counter.textContent = `${length}/500`;
+            
+            if (length > 500) {
+                counter.classList.add('text-red-500');
+            } else {
+                counter.classList.remove('text-red-500');
+            }
+        });
+    }
+}
+
+// ✅ حفظ الملاحظة الجديدة
+async function saveNewAttachmentNote() {
+    const noteInput = document.getElementById('newNoteContent');
+    const noteContent = noteInput ? noteInput.value.trim() : '';
+    
+    if (!noteContent) {
+        showToast('يرجى إدخال نص الملاحظة', 'warning');
+        return;
+    }
+    
+    if (!currentOrderId) {
+        showToast('معرف الطلبية غير صالح', 'error');
+        return;
+    }
+    
+    showMobileLoader();
+    
+    try {
+        const response = await fetch(`/api/orders/${currentOrderId}/attachment-notes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ note: noteContent })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('تم إضافة الملاحظة بنجاح');
+            hideAddNoteModal();
+            loadAttachmentNotes(currentOrderId);
+        } else {
+            showToast(data.error || 'خطأ في حفظ الملاحظة', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving new note:', error);
+        showToast('خطأ في حفظ الملاحظة', 'error');
+    } finally {
+        hideMobileLoader();
+    }
+}
+
+function hideAddNoteModal() {
+    const modal = document.getElementById('addNoteModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function deleteAttachmentNote(noteId) {
+    if (!confirm('هل تريد حذف هذه الملاحظة؟')) return;
+    
+    showMobileLoader();
+    
+    try {
+        const response = await fetch(`/api/orders/${currentOrderId}/attachment-notes`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ note_id: noteId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('تم حذف الملاحظة بنجاح');
+            loadAttachmentNotes(currentOrderId);
+        } else {
+            showToast(data.error || 'خطأ في حذف الملاحظة', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting attachment note:', error);
+        showToast('خطأ في حذف الملاحظة', 'error');
+    } finally {
+        hideMobileLoader();
+    }
+}
+
+async function clearAllAttachmentNotes() {
+    if (!confirm('هل تريد مسح جميع ملاحظات المرفقات؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
+    
+    showMobileLoader();
+    
+    try {
+        const response = await fetch(`/api/orders/${currentOrderId}/attachment-notes`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('تم مسح جميع الملاحظات بنجاح');
+            loadAttachmentNotes(currentOrderId);
+        } else {
+            showToast(data.error || 'خطأ في مسح الملاحظات', 'error');
+        }
+    } catch (error) {
+        console.error('Error clearing attachment notes:', error);
+        showToast('خطأ في مسح الملاحظات', 'error');
+    } finally {
+        hideMobileLoader();
+    }
+}
+
+
+function openFullScreenViewer(attachmentId, label, fileType = 'image') {
+    const viewerHtml = `
+        <div id="fullScreenViewer" class="full-screen-viewer active">
+            <div class="viewer-header">
+                <h3 class="viewer-title">${label}</h3>
+                <button onclick="closeFullScreenViewer()" class="viewer-close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="viewer-content">
+                ${fileType === 'video' ? `
+                    <video controls autoplay class="viewer-video">
+                        <source src="/api/attachments/${attachmentId}/view-video" type="video/mp4">
+                        متصفحك لا يدعم تشغيل الفيديو
+                    </video>
+                ` : `
+                    <img src="/api/attachments/${attachmentId}/view" 
+                         alt="${label}"
+                         class="viewer-image"
+                         onclick="closeFullScreenViewer()">
+                `}
+            </div>
+            <div class="viewer-footer">
+                <button onclick="closeFullScreenViewer()" class="btn-primary">
+                    <i class="fas fa-times ml-2"></i>
+                    إغلاق
+                </button>
+                <a href="/api/attachments/${attachmentId}/download" class="btn-success">
+                    <i class="fas fa-download ml-2"></i>
+                    تحميل
+                </a>
+                ${fileType === 'video' ? `
+                    <button onclick="toggleVideoFullscreen()" class="btn-info">
+                        <i class="fas fa-expand ml-2"></i>
+                        ملء الشاشة
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    const viewerElement = document.createElement('div');
+    viewerElement.innerHTML = viewerHtml;
+    document.body.appendChild(viewerElement);
+    
+    document.body.style.overflow = 'hidden';
+}
+
+function toggleVideoFullscreen() {
+    const video = document.querySelector('.viewer-video');
+    if (!video) return;
+    
+    if (!document.fullscreenElement) {
+        if (video.requestFullscreen) {
+            video.requestFullscreen();
+        } else if (video.webkitRequestFullscreen) {
+            video.webkitRequestFullscreen();
+        } else if (video.msRequestFullscreen) {
+            video.msRequestFullscreen();
+        }
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+}
+
+function closeFullScreenViewer() {
+    const viewer = document.getElementById('fullScreenViewer');
+    if (viewer) {
+        viewer.remove();
+    }
+    document.body.style.overflow = 'auto';
+}
+
+// ======================= //
+// 📤 ATTACHMENTS UPLOAD SYSTEM
+// ======================= //
+
+function handleFileSelection(event) {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+    
+    currentUploadedFiles = files;
+    showUploadPreview(files);
+}
+
+function showUploadPreview(files) {
+    const previewContainer = document.getElementById('previewContainer');
+    const uploadPreviewSection = document.getElementById('uploadPreview');
+    const filesCount = document.getElementById('filesCount');
+    const labelSection = document.getElementById('attachmentLabelSection');
+    
+    if (!previewContainer || !uploadPreviewSection || !filesCount) return;
+    
+    let html = '';
+    
+    files.forEach((file, index) => {
+        const fileType = file.type.split('/')[0];
+        const isImage = fileType === 'image';
+        const isPDF = file.type === 'application/pdf';
+        const isVideo = fileType === 'video';
+        const fileSize = formatFileSize(file.size);
+        
+        html += `
+            <div class="preview-card-compact" data-file-index="${index}">
+                <div class="preview-header-compact">
+                    <div class="preview-icon-compact">
+                        ${isImage ? `
+                            <div class="image-preview-compact">
+                                <img src="${URL.createObjectURL(file)}" 
+                                     alt="معاينة" 
+                                     class="preview-thumbnail-compact"
+                                     onload="safeRevokeObjectURL(this.src)">
+                            </div>
+                        ` : isPDF ? `
+                            <div class="file-icon-compact pdf">
+                                <i class="fas fa-file-pdf text-red-500"></i>
+                            </div>
+                        ` : isVideo ? `
+                            <div class="file-icon-compact video">
+                                <i class="fas fa-file-video text-purple-500"></i>
+                            </div>
+                        ` : `
+                            <div class="file-icon-compact file">
+                                <i class="fas fa-file text-gray-500"></i>
+                            </div>
+                        `}
+                    </div>
+                    <button onclick="removeFileFromUpload(${index})" 
+                            class="preview-remove-btn-compact" 
+                            title="إزالة الملف">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                </div>
+                <div class="preview-body-compact">
+                    <div class="preview-filename-compact" title="${file.name}">
+                        ${truncateFilename(file.name, 15)}
+                    </div>
+                    <div class="preview-meta-compact">
+                        <span class="preview-size-compact">${fileSize}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    previewContainer.innerHTML = html;
+    filesCount.textContent = files.length;
+    uploadPreviewSection.classList.remove('hidden');
+    
+    if (labelSection) {
+        labelSection.classList.remove('hidden');
+        
+        const labelInput = document.getElementById('attachmentLabel');
+        if (labelInput && files.length > 0) {
+            const defaultLabel = files[0].name.split('.')[0];
+            labelInput.value = defaultLabel;
+            labelInput.focus();
+        }
+    }
+}
+
+// ======================= //
+// 🚀 UPLOAD ENHANCEMENTS
+// ======================= //
+
+async function uploadSelectedFiles() {
+    console.log('=== 🚀 بدء رفع الملفات الحقيقي ===');
+    
+    const labelInput = document.getElementById('attachmentLabel');
+    const notesInput = document.getElementById('attachmentNotes');
+    const label = labelInput ? labelInput.value.trim() : '';
+    const notes = notesInput ? notesInput.value.trim() : '';
+    
+    console.log('📍 البيانات:', { 
+        orderId: currentOrderId, 
+        label, 
+        notes, 
+        filesCount: currentUploadedFiles.length 
+    });
+    
+    if (currentUploadedFiles.length === 0) {
+        showToast('❌ لم يتم اختيار أي ملفات للرفع', 'error');
+        return;
+    }
+    
+    if (!currentOrderId) {
+        showToast('❌ معرف الطلبية غير صالح', 'error');
+        return;
+    }
+    
+    showMobileLoader();
+    
+    try {
+        const formData = new FormData();
+        formData.append('order_id', currentOrderId);
+        formData.append('label', label);
+        formData.append('notes', notes); // ✅ إرسال الملاحظات مع الملفات
+        
+        currentUploadedFiles.forEach(file => {
+            formData.append('attachments', file);
+        });
+        
+        const response = await fetch('/api/orders/upload-attachments-real', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`خطأ في الخادم: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ تم رفع الملفات بنجاح:', data);
+            
+            // إعادة تعيين الحقول
+            if (labelInput) labelInput.value = '';
+            if (notesInput) notesInput.value = '';
+            
+            const notesCounter = document.getElementById('notesCounter');
+            if (notesCounter) notesCounter.textContent = '0/500';
+            
+            const uploadPreview = document.getElementById('uploadPreview');
+            const labelSection = document.getElementById('attachmentLabelSection');
+            if (uploadPreview) uploadPreview.classList.add('hidden');
+            if (labelSection) labelSection.classList.add('hidden');
+            
+            const fileInput = document.getElementById('newFileInput');
+            if (fileInput) fileInput.value = '';
+            currentUploadedFiles = [];
+            
+            const successMessage = label ? 
+                `✅ تم رفع "${label}" بنجاح` : 
+                `✅ تم رفع ${data.files?.length || 0} ملف بنجاح`;
+            
+            showToast(successMessage);
+            
+            // إعادة تحميل المرفقات والملاحظات
+            setTimeout(() => {
+                loadCurrentAttachments(currentOrderId);
+                loadAttachmentNotes(currentOrderId);
+            }, 500);
+            
+        } else {
+            throw new Error(data.error || 'خطأ غير معروف في الرفع');
+        }
+        
+    } catch (error) {
+        console.error('❌ خطأ في رفع الملفات:', error);
+        showToast(`❌ فشل في رفع الملفات: ${error.message}`, 'error');
+        
+        showUploadPreview(currentUploadedFiles);
+    } finally {
+        hideMobileLoader();
+    }
+}
+
+function clearUploadSelection() {
+    currentUploadedFiles = [];
+    
+    const uploadPreview = document.getElementById('uploadPreview');
+    const labelSection = document.getElementById('attachmentLabelSection');
+    const fileInput = document.getElementById('newFileInput');
+    const labelInput = document.getElementById('attachmentLabel');
+    const notesInput = document.getElementById('attachmentNotes');
+    
+    if (uploadPreview) uploadPreview.classList.add('hidden');
+    if (labelSection) labelSection.classList.add('hidden');
+    if (fileInput) fileInput.value = '';
+    if (labelInput) labelInput.value = '';
+    
+    if (notesInput) {
+        notesInput.value = '';
+        document.getElementById('notesCounter').textContent = '0/500';
+    }
+    
+    showToast('تم إلغاء اختيار الملفات', 'info');
+}
+
+function removeFileFromUpload(index) {
+    if (currentUploadedFiles.length > index) {
+        currentUploadedFiles.splice(index, 1);
+        if (currentUploadedFiles.length > 0) {
+            showUploadPreview(currentUploadedFiles);
+        } else {
+            const uploadPreview = document.getElementById('uploadPreview');
+            if (uploadPreview) uploadPreview.classList.add('hidden');
+        }
+    }
+}
+
+// ======================= //
+// 🗑️ ATTACHMENT DELETION
+// ======================= //
+
+async function deleteAttachmentPermanently(attachmentId) {
+    if (!confirm('⚠️ هل أنت متأكد من حذف هذا المرفق؟ هذا الإجراء لا يمكن التراجع عنه.')) {
+        return;
+    }
+    
+    showMobileLoader();
+    
+    try {
+        const response = await fetch(`/api/attachments/${attachmentId}/delete`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('🗑️ تم حذف المرفق بنجاح');
+            loadCurrentAttachments(currentOrderId);
+        } else {
+            throw new Error(data.error || 'خطأ في الحذف');
+        }
+    } catch (error) {
+        console.error('❌ خطأ في حذف المرفق:', error);
+        showToast('❌ خطأ في حذف المرفق', 'error');
+    } finally {
+        hideMobileLoader();
+    }
+}
+// ======================= //
+// 🔍 ATTACHMENTS SEARCH
+// ======================= //
+
+function setupAttachmentsSearch() {
+    const searchInput = document.getElementById('attachmentsSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            filterAttachments(this.value.toLowerCase());
+        });
+    }
+}
+
+function filterAttachments(searchTerm) {
+    const attachmentCards = document.querySelectorAll('.attachment-card');
+    let visibleCount = 0;
+    
+    attachmentCards.forEach(card => {
+        const label = card.getAttribute('data-label') || '';
+        const filename = card.getAttribute('data-filename') || '';
+        const uploader = card.getAttribute('data-uploader') || '';
+        
+        const searchableText = (label + ' ' + filename + ' ' + uploader).toLowerCase();
+        
+        if (searchableText.includes(searchTerm) || searchTerm === '') {
+            card.style.display = 'block';
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+    
+    // تحديث العداد
+    const countElement = document.getElementById('attachmentsCount');
+    if (countElement && searchTerm) {
+        countElement.textContent = `${visibleCount} من ${currentAttachmentsData.length}`;
+    } else if (countElement) {
+        countElement.textContent = currentAttachmentsData.length;
+    }
+}
+
+
+async function logAttachmentActivity(activityData) {
+    try {
+        const response = await fetch('/api/orders/log-attachment-activity', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                ...activityData,
+                timestamp: new Date().toISOString(),
+                user: getCurrentUserName()
+            })
+        });
+        
+        if (response.ok) {
+            console.log('✅ تم تسجيل نشاط المرفقات في السجل:', activityData);
+        } else {
+            console.warn('⚠️ تعذر تسجيل نشاط المرفقات في السجل');
+        }
+    } catch (error) {
+        console.error('❌ خطأ في تسجيل نشاط المرفقات:', error);
+    }
+}
+
+function getCurrentUserName() {
+    return 'النظام';
+}
+
+// ======================= //
+// 📞 PHONE MANAGEMENT
+// ======================= //
+
+function togglePhoneOptions(phoneNumber) {
+    if (!phoneNumber) return;
+    
+    const menuId = `phoneOptions-${phoneNumber.replace(/\+/g, '').replace(/ /g, '')}`;
+    const menu = document.getElementById(menuId);
+    
+    document.querySelectorAll('.phone-options-popup').forEach(popup => {
+        if (popup.id !== menuId) {
+            popup.classList.add('hidden');
+        }
+    });
+    
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
+
+function copyPhoneNumber(phoneNumber) {
+    if (!phoneNumber) return;
+    
+    navigator.clipboard.writeText(phoneNumber).then(() => {
+        showToast('✅ تم نسخ الرقم: ' + phoneNumber);
+        document.querySelectorAll('.phone-options-popup').forEach(menu => {
+            menu.classList.add('hidden');
+        });
+        hideModal('mobilePhoneModal');
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        showToast('❌ فشل في نسخ الرقم', 'error');
+    });
+}
+
+// ======================= //
+// 🛠️ UTILITY FUNCTIONS
+// ======================= //
+
+function getFileIcon(fileType) {
+    const icons = {
+        'image': 'file-image',
+        'video': 'file-video',
+        'pdf': 'file-pdf',
+        'document': 'file-word'
+    };
+    return icons[fileType] || 'file';
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function truncateFilename(filename, maxLength) {
+    if (filename.length <= maxLength) return filename;
+    const extension = filename.split('.').pop();
+    const nameWithoutExt = filename.substring(0, filename.length - extension.length - 1);
+    return nameWithoutExt.substring(0, maxLength - 3) + '...' + extension;
+}
+
+function reapplyFiltersToRow(row) {
+    // إعادة تطبيق الفلاتر الحالية على الصف
+    performSmartSearch();
+}
+
+function startDebtMonitoring(orderId) {
+    // بدء مراقبة تحديثات الديون
+    if (debtMonitoringInterval) {
+        clearInterval(debtMonitoringInterval);
+    }
+    
+    debtMonitoringInterval = setInterval(() => {
+        updateDebtCard(orderId);
+    }, 30000); // كل 30 ثانية
+}
+
+function updateDebtCard(orderId) {
+    // تحديث بطاقة الديون
+    const debtCard = document.getElementById('orderDebtCard');
+    if (debtCard) {
+        debtCard.classList.add('updating');
+        setTimeout(() => {
+            debtCard.classList.remove('updating');
+        }, 1000);
+    }
+}
+
+function showAddStatusModal() {
+    showToast('جاري فتح نافذة إضافة الحالة...', 'info');
+    // يمكن إضافة منطق نافذة إضافة الحالة هنا
+}
+
+// ======================= //
+// 🚀 INITIALIZATION
+// ======================= //
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 تهيئة نظام إدارة الطلبيات...');
+    
+    setupSearchAndFilters();
+    setupCostsAutoRefresh();
+    initScrollToTop();
+    
+    loadTotalCosts();
+    loadOrdersHealthStats();
+    
+    setupFormListeners();
+    
+    console.log('✅ تم تهيئة النظام بنجاح');
+});
+
+function setupFormListeners() {
+    const orderForm = document.getElementById('orderForm');
+    if (orderForm) {
+        orderForm.addEventListener('submit', function(e) {
+            const name = document.getElementById('order_name').value.trim();
+            const wilaya = document.getElementById('order_wilaya').value.trim();
+            const product = document.getElementById('order_product').value.trim();
+            const total = parseFloat(document.getElementById('order_total').value) || 0;
+            
+            if (!name) {
+                e.preventDefault();
+                showToast('❌ اسم العميل مطلوب', 'error');
+                document.getElementById('order_name').focus();
+                return;
+            }
+            
+            if (!wilaya) {
+                e.preventDefault();
+                showToast('❌ الولاية مطلوبة', 'error');
+                document.getElementById('order_wilaya').focus();
+                return;
+            }
+            
+            if (!product) {
+                e.preventDefault();
+                showToast('❌ المنتج مطلوب', 'error');
+                document.getElementById('order_product').focus();
+                return;
+            }
+            
+            if (total <= 0) {
+                e.preventDefault();
+                showToast('❌ إجمالي المبلغ يجب أن يكون أكبر من الصفر', 'error');
+                document.getElementById('order_total').focus();
+                return;
+            }
+            
+            console.log('✅ التحقق من البيانات ناجح، جاري الإرسال...');
+        });
+    }
+}
+
+function setupCostsAutoRefresh() {
+    const orderForm = document.getElementById('orderForm');
+    if (orderForm) {
+        orderForm.addEventListener('submit', function() {
+            setTimeout(loadTotalCosts, 1000);
+        });
+    }
+    
+    const paymentForm = document.getElementById('paymentForm');
+    if (paymentForm) {
+        paymentForm.addEventListener('submit', function() {
+            setTimeout(loadTotalCosts, 1000);
+        });
+    }
+    
+    setInterval(loadTotalCosts, 30000);
+}
+</script>

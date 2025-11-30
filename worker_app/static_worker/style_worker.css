@@ -1,0 +1,130 @@
+﻿/* تنسيقات خاصة بتطبيق العمال */
+.worker-app {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.progress-bar {
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #e5e7eb;
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.progress-low { background: #ef4444; }
+.progress-medium { background: #f59e0b; }
+.progress-high { background: #10b981; }
+
+.notification-item {
+    border-right: 4px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.notification-item.unread {
+    background: #f0f9ff;
+    border-right-color: #3b82f6;
+}
+
+.notification-assignment { border-right-color: #3b82f6; }
+.notification-delay { border-right-color: #ef4444; }
+.notification-advance { border-right-color: #10b981; }
+.notification-salary { border-right-color: #f59e0b; }
+
+.order-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.order-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.attendance-btn {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.attendance-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+.attendance-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* تصميم متجاوب للهواتف */
+@media (max-width: 768px) {
+    .worker-app {
+        padding: 8px;
+    }
+    
+    .order-card {
+        margin-bottom: 12px;
+    }
+    
+    .attendance-btn {
+        width: 100%;
+        margin: 8px 0;
+    }
+}
+
+/* تحسينات للشاشات الصغيرة */
+@media (max-width: 480px) {
+    .container {
+        padding: 0 8px;
+    }
+    
+    .btn {
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+}
+
+/* رسوم متحركة */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-in {
+    animation: slideIn 0.5s ease;
+}
+
+/* تخصيص شريط التمرير */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}

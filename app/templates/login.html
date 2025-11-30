@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الدخول - نظام الإدارة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full space-y-8 p-8">
+        <!-- رأس الصفحة -->
+        <div class="text-center">
+            <div class="mx-auto w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mb-4">
+                <i class="fas fa-tools text-white text-2xl"></i>
+            </div>
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-white">نظام الإدارة المتكامل</h2>
+            <p class="mt-2 text-gray-600 dark:text-gray-400">
+                سجل دخولك للوصول إلى لوحة التحكم المناسبة
+            </p>
+        </div>
+
+        <!-- نموذج تسجيل الدخول -->
+        <form class="mt-8 space-y-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md" method="POST">
+            {% if error %}
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <strong class="font-bold">خطأ!</strong>
+                <span class="block sm:inline">{{ error }}</span>
+            </div>
+            {% endif %}
+
+            <div class="space-y-4">
+                <!-- حقل اسم المستخدم -->
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <i class="fas fa-user ml-2"></i>
+                        اسم المستخدم
+                    </label>
+                    <input id="username" name="username" type="text" required 
+                           class="appearance-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 dark:bg-gray-700"
+                           placeholder="أدخل اسم المستخدم">
+                </div>
+
+                <!-- حقل كلمة المرور -->
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <i class="fas fa-lock ml-2"></i>
+                        كلمة المرور
+                    </label>
+                    <input id="password" name="password" type="password" required 
+                           class="appearance-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 dark:bg-gray-700"
+                           placeholder="أدخل كلمة المرور">
+                </div>
+
+                <!-- كشف نوع المستخدم الذكي -->
+<div id="user-type-detector" class="hidden mt-4 p-4 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center">
+            <i class="fas fa-user-shield text-blue-600 text-lg ml-2"></i>
+            <div>
+                <div class="font-semibold text-blue-800 dark:text-blue-200" id="detected-role">جارٍ الكشف...</div>
+                <div class="text-sm text-blue-600 dark:text-blue-400" id="detected-dashboard">سيتم توجيهك تلقائياً</div>
+            </div>
+        </div>
+        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" id="loading-spinner"></div>
+    </div>
+</div>
+
+                <!-- نوع المستخدم (اختياري للعرض) -->
+                <div id="user-type-indicator" class="hidden">
+                    <div class="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div class="flex items-center">
+                            <i class="fas fa-user-tag text-blue-600 ml-2"></i>
+                            <span class="text-sm font-medium text-blue-800 dark:text-blue-200" id="user-type-text"></span>
+                        </div>
+                        <div class="text-xs text-blue-600 dark:text-blue-400" id="user-dashboard-text"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- زر تسجيل الدخول -->
+            <div>
+                <button type="submit" 
+                        class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                    <i class="fas fa-sign-in-alt ml-2"></i>
+                    تسجيل الدخول
+                </button>
+            </div>
+
+            <!-- معلومات إضافية -->
+            <div class="text-center text-sm text-gray-600 dark:text-gray-400">
+                <p>سيتم توجيهك تلقائياً إلى اللوحة المناسبة</p>
+                <div class="mt-4 grid grid-cols-2 gap-4 text-xs">
+                    <div class="bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                        <i class="fas fa-user-shield text-green-600"></i>
+                        <div>المديرون</div>
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
+                        <i class="fas fa-hard-hat text-blue-600"></i>
+                        <div>العمال</div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+    // كشف نوع المستخدم أثناء الكتابة
+    document.getElementById('username').addEventListener('input', function() {
+        const username = this.value.toLowerCase();
+        const indicator = document.getElementById('user-type-indicator');
+        const typeText = document.getElementById('user-type-text');
+        const dashboardText = document.getElementById('user-dashboard-text');
+        
+        if (username.length < 3) {
+            indicator.classList.add('hidden');
+            return;
+        }
+        
+        // كلمات مفتاحية للتمييز (يمكن تخصيصها)
+        const workerKeywords = ['worker', 'emp', 'factor', 'amal', '3amel', 'عامل', 'موظف'];
+        const adminKeywords = ['admin', 'manager', 'mudeer', 'مدير', 'ادمن'];
+        
+        const isWorker = workerKeywords.some(keyword => username.includes(keyword));
+        const isAdmin = adminKeywords.some(keyword => username.includes(keyword));
+        
+        if (isWorker) {
+            typeText.textContent = 'عامل';
+            dashboardText.textContent = 'لوحة العمال';
+            indicator.classList.remove('hidden');
+            indicator.className = indicator.className.replace('bg-blue-50', 'bg-green-50').replace('border-blue-200', 'border-green-200');
+            typeText.className = typeText.className.replace('text-blue-800', 'text-green-800');
+        } else if (isAdmin) {
+            typeText.textContent = 'مدير';
+            dashboardText.textContent = 'لوحة التحكم الكاملة';
+            indicator.classList.remove('hidden');
+        } else {
+            typeText.textContent = 'مستخدم';
+            dashboardText.textContent = 'سيتم تحديد اللوحة تلقائياً';
+            indicator.classList.remove('hidden');
+        }
+    });
+
+    // تأثيرات عند التركيز على الحقول
+    const inputs = document.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.addEventListener('focus', function() {
+            this.parentElement.classList.add('ring-2', 'ring-blue-200', 'rounded-lg');
+        });
+        
+        input.addEventListener('blur', function() {
+            this.parentElement.classList.remove('ring-2', 'ring-blue-200', 'rounded-lg');
+        });
+    });
+    </script>
+
+    <style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    input:focus {
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .transition-colors {
+        transition: all 0.3s ease;
+    }
+    </style>
+</body>
+</html>

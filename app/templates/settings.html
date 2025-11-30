@@ -1,0 +1,2560 @@
+<!-- templates/settings.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <!-- رأس الصفحة -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">⚙️ مركز التحكم والإعدادات الشامل</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-2">إدارة كاملة للنظام والمستخدمين والإعدادات والصلاحيات</p>
+    </div>
+    
+    <div class="flex items-center gap-4">
+      <div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl px-6 py-3 shadow-lg">
+        <div class="text-sm font-medium">المستخدمون النشطون</div>
+        <div class="text-2xl font-bold mt-1">{{ users|length }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- تبويبات الإعدادات -->
+  <div class="card p-2 mb-8">
+    <div class="flex flex-wrap border-b border-gray-200 dark:border-gray-700">
+      <button onclick="showTab('users')" 
+              class="tab-btn px-6 py-3 border-b-2 font-medium text-sm transition-colors border-blue-500 text-blue-600 dark:text-blue-400"
+              data-tab="users">
+        <i class="fas fa-users mr-2"></i>
+        إدارة المديرين
+      </button>
+      <button onclick="showTab('system')" 
+              class="tab-btn px-6 py-3 border-b-2 font-medium text-sm transition-colors border-transparent text-gray-500 dark:text-gray-400"
+              data-tab="system">
+        <i class="fas fa-cog mr-2"></i>
+        إعدادات النظام
+      </button>
+      <button onclick="showTab('statuses')" 
+              class="tab-btn px-6 py-3 border-b-2 font-medium text-sm transition-colors border-transparent text-gray-500 dark:text-gray-400"
+              data-tab="statuses">
+        <i class="fas fa-tags mr-2"></i>
+        حالات الطلبيات
+      </button>
+      <button onclick="showTab('suppliers')" 
+              class="tab-btn px-6 py-3 border-b-2 font-medium text-sm transition-colors border-transparent text-gray-500 dark:text-gray-400"
+              data-tab="suppliers">
+        <i class="fas fa-truck mr-2"></i>
+        إدارة الموردين
+      </button>
+      <button onclick="showTab('products')" 
+              class="tab-btn px-6 py-3 border-b-2 font-medium text-sm transition-colors border-transparent text-gray-500 dark:text-gray-400"
+              data-tab="products">
+        <i class="fas fa-box mr-2"></i>
+        إدارة المنتجات
+      </button>
+      <button onclick="showTab('categories')" 
+              class="tab-btn px-6 py-3 border-b-2 font-medium text-sm transition-colors border-transparent text-gray-500 dark:text-gray-400"
+              data-tab="categories">
+        <i class="fas fa-folder mr-2"></i>
+        التصنيفات
+      </button>
+      <button onclick="showTab('workers')" 
+              class="tab-btn px-6 py-3 border-b-2 font-medium text-sm transition-colors border-transparent text-gray-500 dark:text-gray-400"
+              data-tab="workers">
+        <i class="fas fa-user-cog mr-2"></i>
+        إدارة العمال
+      </button>
+      <button onclick="showTab('backup')" 
+              class="tab-btn px-6 py-3 border-b-2 font-medium text-sm transition-colors border-transparent text-gray-500 dark:text-gray-400"
+              data-tab="backup">
+        <i class="fas fa-database mr-2"></i>
+        النسخ الاحتياطي
+      </button>
+    </div>
+  </div>
+
+  <!-- محتوى التبويبات -->
+  <div id="tabContent">
+    
+    <!-- تبويب إدارة المديرين -->
+    <div id="users-tab" class="tab-content active">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white">👥 إدارة مديري النظام</h3>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">إدارة حسابات مديري النظام والصلاحيات - جميع المديرين هنا لديهم صلاحيات كاملة</p>
+        </div>
+        <div class="flex gap-2">
+          <div class="relative">
+            <input type="text" id="usersSearch" placeholder="بحث في المديرين..." 
+                   class="form-input pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white" onkeyup="searchTable('usersSearch', 'usersTable')">
+            <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          </div>
+          <button onclick="showModal('addUserModal')" class="btn-success flex items-center gap-2">
+            <i class="fas fa-user-plus"></i>
+            إضافة مدير شامل
+          </button>
+        </div>
+      </div>
+
+      <!-- إحصائيات المديرين -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-blue-600">{{ users|length }}</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">إجمالي المديرين</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-green-600">{{ users|selectattr('is_active', 'equalto', true)|list|length }}</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">نشطين</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-purple-600">{{ users|selectattr('last_login')|list|length }}</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">دخلوا النظام</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-orange-600">{{ users|rejectattr('is_active')|list|length }}</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">غير نشطين</div>
+        </div>
+      </div>
+
+      <!-- جدول المديرين -->
+      <div class="table-container">
+        <table class="w-full" id="usersTable">
+          <thead class="table-header dark:bg-gray-800">
+            <tr>
+              <th class="p-4 text-right cursor-pointer" onclick="sortTable('usersTable', 0)"># <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 text-right cursor-pointer" onclick="sortTable('usersTable', 1)">المدير <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 text-right">معلومات الاتصال</th>
+              <th class="p-4 text-right cursor-pointer" onclick="sortTable('usersTable', 3)">الدور <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 text-right cursor-pointer" onclick="sortTable('usersTable', 4)">الحالة <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 text-right cursor-pointer" onclick="sortTable('usersTable', 5)">آخر نشاط <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 text-right">العمليات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-600">
+              <td class="p-4">
+                <div class="font-mono text-sm text-gray-500 dark:text-gray-400">#{{ user.id }}</div>
+              </td>
+              
+              <td class="p-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                    {{ user.username[0]|upper }}
+                  </div>
+                  <div>
+                    <div class="font-semibold text-gray-900 dark:text-white">{{ user.username }}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ user.full_name or "بدون اسم" }}</div>
+                  </div>
+                </div>
+              </td>
+              
+              <td class="p-4">
+                <div class="space-y-1 text-sm">
+                  <div class="text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                    <i class="fas fa-envelope text-gray-400"></i>
+                    {{ user.email or "بدون بريد" }}
+                  </div>
+                  <div class="text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                    <i class="fas fa-phone text-gray-400"></i>
+                    {{ user.phone or "بدون هاتف" }}
+                  </div>
+                </div>
+              </td>
+              
+              <td class="p-4">
+                <div class="space-y-2">
+                  <span class="badge badge-success">
+                    <i class="fas fa-crown ml-1"></i>
+                    مدير شامل
+                  </span>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    جميع الصلاحيات
+                  </div>
+                </div>
+              </td>
+              
+              <td class="p-4">
+                {% if user.is_active %}
+                <span class="badge badge-success flex items-center gap-1 w-fit">
+                  <i class="fas fa-check-circle"></i>
+                  نشط
+                </span>
+                {% else %}
+                <span class="badge badge-danger flex items-center gap-1 w-fit">
+                  <i class="fas fa-pause-circle"></i>
+                  غير نشط
+                </span>
+                {% endif %}
+              </td>
+              
+              <td class="p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-300">
+                  {% if user.last_login %}
+                  <div>{{ user.last_login.strftime('%Y-%m-%d') }}</div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">{{ user.last_login.strftime('%H:%M') }}</div>
+                  {% else %}
+                  <span class="text-gray-400">لم يسجل دخول</span>
+                  {% endif %}
+                </div>
+              </td>
+              
+              <td class="p-4">
+                <div class="flex flex-col gap-2 min-w-[120px]">
+                  <!-- زر التعديل -->
+                  <button onclick="editUser({{ user.id }})" 
+                          class="flex items-center gap-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-sm">
+                    <i class="fas fa-edit text-xs"></i>
+                    تعديل
+                  </button>
+                  
+                  <!-- زر إعادة تعيين كلمة المرور -->
+                  <button onclick="resetUserPassword({{ user.id }}, '{{ user.username }}')"
+                         class="flex items-center gap-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 p-2 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors text-sm">
+                    <i class="fas fa-key text-xs"></i>
+                    إعادة تعيين كلمة المرور
+                  </button>
+                  
+                  <!-- زر إيقاف/تفعيل -->
+                  {% if user.username != session.user %}
+                  <button onclick="toggleUserStatus({{ user.id }}, {{ user.is_active|lower }})"
+                         class="flex items-center gap-2 {% if user.is_active %}text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300{% else %}text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300{% endif %} p-2 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors text-sm">
+                    <i class="fas {% if user.is_active %}fa-pause{% else %}fa-play{% endif %} text-xs"></i>
+                    {{ "إيقاف" if user.is_active else "تفعيل" }}
+                  </button>
+                  
+                  <!-- زر الحذف -->
+                  <button onclick="confirmDeleteUser({{ user.id }}, '{{ user.username }}')"
+                         class="flex items-center gap-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm">
+                    <i class="fas fa-trash text-xs"></i>
+                    حذف
+                  </button>
+                  {% else %}
+                  <span class="text-gray-400 text-sm p-2 text-center">حسابك الحالي</span>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- رسالة إذا لم يكن هناك مديرين -->
+      {% if not users %}
+      <div class="card p-8 text-center">
+        <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">لا يوجد مديرين</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">ابدأ بإضافة أول مدير شامل إلى النظام</p>
+        <button onclick="showModal('addUserModal')" class="btn-primary">
+          <i class="fas fa-user-plus ml-2"></i>
+          إضافة أول مدير شامل
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- تبويب إعدادات النظام -->
+    <div id="system-tab" class="tab-content">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- الإعدادات العامة -->
+        <div class="card p-6">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+              <i class="fas fa-globe text-blue-600 dark:text-blue-400 text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white">الإعدادات العامة</h3>
+              <p class="text-gray-600 dark:text-gray-400 text-sm">إعدادات أساسية للنظام</p>
+            </div>
+          </div>
+          
+          <form method="POST" action="{{ url_for('update_system_settings') }}" class="space-y-6" id="generalSettingsForm">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <i class="fas fa-building ml-2 text-gray-400"></i>
+                  اسم الشركة
+                </label>
+                <input type="text" name="company_name" value="{{ settings.company_name if settings else 'SOFAZI' }}" 
+                       class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="اسم الشركة أو المؤسسة" required>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">العملة</label>
+                  <select name="currency" class="form-select dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    <option value="DZD" {% if settings and settings.currency == 'DZD' %}selected{% endif %}>دينار جزائري (DZD)</option>
+                    <option value="USD" {% if settings and settings.currency == 'USD' %}selected{% endif %}>دولار أمريكي (USD)</option>
+                    <option value="EUR" {% if settings and settings.currency == 'EUR' %}selected{% endif %}>يورو (EUR)</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">اللغة</label>
+                  <select name="language" class="form-select dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    <option value="ar" {% if settings and settings.language == 'ar' %}selected{% endif %}>العربية</option>
+                    <option value="en" {% if settings and settings.language == 'en' %}selected{% endif %}>English</option>
+                    <option value="fr" {% if settings and settings.language == 'fr' %}selected{% endif %}>Français</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2">
+              <i class="fas fa-save"></i>
+              حفظ الإعدادات العامة
+            </button>
+          </form>
+        </div>
+
+        <!-- إعدادات الأمان -->
+        <div class="card p-6">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+              <i class="fas fa-shield-alt text-red-600 dark:text-red-400 text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white">إعدادات الأمان</h3>
+              <p class="text-gray-600 dark:text-gray-400 text-sm">حماية النظام والحسابات</p>
+            </div>
+          </div>
+          
+          <form method="POST" action="{{ url_for('update_security_settings') }}" class="space-y-6" id="securitySettingsForm">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                  <div class="font-medium text-gray-900 dark:text-white">التحقق بخطوتين</div>
+                  <div class="text-sm text-gray-600 dark:text-gray-400">زيادة أمان حسابات المستخدمين</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" name="two_factor" value="on" class="sr-only peer" {% if settings and settings.two_factor %}checked{% endif %}>
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+              
+              <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                  <div class="font-medium text-gray-900 dark:text-white">تسجيل النشاط</div>
+                  <div class="text-sm text-gray-600 dark:text-gray-400">تسجيل جميع عمليات الدخول والنشاطات</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" name="activity_logging" value="on" class="sr-only peer" {% if settings and settings.activity_logging %}checked{% endif %}>
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">مدة انتهاء الجلسة (دقائق)</label>
+                <input type="number" name="session_timeout" value="{{ settings.session_timeout if settings else 30 }}" 
+                       class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white" min="5" max="1440" required>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">المدة قبل انتهاء جلسة المستخدم تلقائياً</p>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">قوة كلمة المرور</label>
+                <select name="password_strength" class="form-select dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                  <option value="low" {% if settings and settings.password_strength == 'low' %}selected{% endif %}>منخفضة (6 أحرف)</option>
+                  <option value="medium" {% if settings and settings.password_strength == 'medium' %}selected{% endif %}>متوسطة (8 أحرف + أرقام)</option>
+                  <option value="high" {% if settings and settings.password_strength == 'high' %}selected{% endif %}>عالية (10 أحرف + أرقام + رموز)</option>
+                </select>
+              </div>
+            </div>
+            
+            <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2">
+              <i class="fas fa-shield-alt"></i>
+              حفظ إعدادات الأمان
+            </button>
+          </form>
+        </div>
+
+        <!-- إعدادات الواجهة -->
+        <div class="card p-6">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+              <i class="fas fa-palette text-purple-600 dark:text-purple-400 text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white">إعدادات الواجهة</h3>
+              <p class="text-gray-600 dark:text-gray-400 text-sm">تخصيص مظهر النظام</p>
+            </div>
+          </div>
+          
+          <form method="POST" action="{{ url_for('update_ui_settings') }}" class="space-y-6" id="uiSettingsForm">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">السمة</label>
+                <select name="theme" class="form-select dark:bg-gray-700 dark:border-gray-600 dark:text-white" onchange="previewTheme(this.value)">
+                  <option value="light" {% if settings and settings.theme == 'light' %}selected{% endif %}>فاتحة</option>
+                  <option value="dark" {% if settings and settings.theme == 'dark' %}selected{% endif %}>داكنة</option>
+                  <option value="auto" {% if settings and settings.theme == 'auto' %}selected{% endif %}>تلقائية</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">اللون الأساسي</label>
+                <div class="flex gap-3 items-center">
+                  <input type="color" name="primary_color" value="{{ settings.primary_color if settings else '#3B82F6' }}" 
+                         class="w-12 h-12 rounded cursor-pointer border dark:border-gray-600" id="colorPicker">
+                  <input type="text" name="primary_color_hex" value="{{ settings.primary_color if settings else '#3B82F6' }}" 
+                         class="form-input flex-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="#3B82F6" id="colorText" maxlength="7">
+                  <div class="w-8 h-8 rounded border dark:border-gray-600" id="colorPreview" style="background-color: {{ settings.primary_color if settings else '#3B82F6' }}"></div>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">عدد الصفوف في الجداول</label>
+                <select name="rows_per_page" class="form-select dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                  <option value="10" {% if settings and settings.rows_per_page == 10 %}selected{% endif %}>10 صفوف</option>
+                  <option value="25" {% if settings and settings.rows_per_page == 25 %}selected{% endif %}>25 صف</option>
+                  <option value="50" {% if settings and settings.rows_per_page == 50 %}selected{% endif %}>50 صف</option>
+                  <option value="100" {% if settings and settings.rows_per_page == 100 %}selected{% endif %}>100 صف</option>
+                </select>
+              </div>
+              
+              <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                  <div class="font-medium text-gray-900 dark:text-white">وضع الضغط</div>
+                  <div class="text-sm text-gray-600 dark:text-gray-400">إظهار واجهة مدمجة</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" name="compact_mode" value="on" class="sr-only peer" {% if settings and settings.compact_mode %}checked{% endif %}>
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+            </div>
+            
+            <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2">
+              <i class="fas fa-palette"></i>
+              حفظ إعدادات الواجهة
+            </button>
+          </form>
+        </div>
+
+        <!-- إعدادات الإشعارات -->
+        <div class="card p-6">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+              <i class="fas fa-bell text-green-600 dark:text-green-400 text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white">إعدادات الإشعارات</h3>
+              <p class="text-gray-600 dark:text-gray-400 text-sm">التحكم في الإشعارات والتنبيهات</p>
+            </div>
+          </div>
+          
+          <form method="POST" action="{{ url_for('update_notification_settings') }}" class="space-y-6" id="notificationSettingsForm">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                  <div class="font-medium text-gray-900 dark:text-white">إشعارات البريد الإلكتروني</div>
+                  <div class="text-sm text-gray-600 dark:text-gray-400">إرسال إشعارات عبر البريد الإلكتروني</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" name="email_notifications" value="on" class="sr-only peer" {% if settings and settings.email_notifications %}checked{% endif %}>
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+              
+              <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                  <div class="font-medium text-gray-900 dark:text-white">إشعارات الدفع</div>
+                  <div class="text-sm text-gray-600 dark:text-gray-400">إشعارات بمواعيد الدفع والديون</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" name="payment_notifications" value="on" class="sr-only peer" {% if settings and settings.payment_notifications %}checked{% endif %}>
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+              
+              <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                  <div class="font-medium text-gray-900 dark:text-white">إشعارات المخزون</div>
+                  <div class="text-sm text-gray-600 dark:text-gray-400">تنبيهات بنفاد المنتجات</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" name="inventory_notifications" value="on" class="sr-only peer" {% if settings and settings.inventory_notifications %}checked{% endif %}>
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">توقيت الإشعارات</label>
+                <select name="notification_time" class="form-select dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                  <option value="instant" {% if settings and settings.notification_time == 'instant' %}selected{% endif %}>فوري</option>
+                  <option value="daily" {% if settings and settings.notification_time == 'daily' %}selected{% endif %}>يومي</option>
+                  <option value="weekly" {% if settings and settings.notification_time == 'weekly' %}selected{% endif %}>أسبوعي</option>
+                </select>
+              </div>
+            </div>
+            
+            <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2">
+              <i class="fas fa-bell"></i>
+              حفظ إعدادات الإشعارات
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- إعدادات متقدمة -->
+      <div class="card p-6 mt-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+            <i class="fas fa-cogs text-orange-600 dark:text-orange-400 text-xl"></i>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white">الإعدادات المتقدمة</h3>
+            <p class="text-gray-600 dark:text-gray-400 text-sm">إعدادات متقدمة للنظام</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="space-y-4">
+            <button type="button" onclick="clearSystemCache()" class="w-full btn-warning flex items-center justify-center gap-2">
+              <i class="fas fa-broom"></i>
+              مسح ذاكرة التخزين المؤقت
+            </button>
+            
+            <button type="button" onclick="exportSystemData()" class="w-full btn-success flex items-center justify-center gap-2">
+              <i class="fas fa-download"></i>
+              تصدير بيانات النظام
+            </button>
+          </div>
+          
+          <div class="space-y-4">
+            <button type="button" onclick="showSystemLogs()" class="w-full btn-info flex items-center justify-center gap-2">
+              <i class="fas fa-file-alt"></i>
+              عرض سجلات النظام
+            </button>
+            
+            <button type="button" onclick="showDatabaseInfo()" class="w-full btn-primary flex items-center justify-center gap-2">
+              <i class="fas fa-database"></i>
+              معلومات قاعدة البيانات
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- تبويب حالات الطلبيات -->
+    <div id="statuses-tab" class="tab-content">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white">🏷️ إدارة حالات الطلبيات</h3>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">إضافة وتعديل حالات الطلبيات في النظام</p>
+        </div>
+        <div class="flex gap-2">
+          <div class="relative">
+            <input type="text" id="statusesSearch" placeholder="بحث في الحالات..." 
+                   class="form-input pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white" onkeyup="searchTable('statusesSearch', 'statusesTable')">
+            <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- نموذج إضافة حالة -->
+      <div class="card p-6 mb-6">
+        <h4 class="font-medium mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
+          <i class="fas fa-plus-circle text-green-600"></i>
+          إضافة حالة جديدة
+        </h4>
+        <form method="POST" action="{{ url_for('add_status') }}" class="flex flex-col md:flex-row gap-3" id="addStatusForm">
+          <div class="flex-1">
+            <input name="name" placeholder="اسم الحالة (مثال: قيد التنفيذ)" required 
+                   class="form-input w-full dark:bg-gray-700 dark:border-gray-600 dark:text-white" pattern=".{2,50}" title="يجب أن يكون الاسم بين 2 و 50 حرف">
+          </div>
+          <div class="flex gap-2">
+            <input name="color" type="color" value="#FFC107" class="w-16 h-12 rounded cursor-pointer border dark:border-gray-600">
+            <button type="submit" class="btn-warning flex items-center gap-2">
+              <i class="fas fa-plus"></i>
+              إضافة
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- جدول الحالات -->
+      <div class="table-container">
+        <table class="w-full" id="statusesTable">
+          <thead class="table-header dark:bg-gray-800">
+            <tr>
+              <th class="p-4 cursor-pointer" onclick="sortTable('statusesTable', 0)"># <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 cursor-pointer" onclick="sortTable('statusesTable', 1)">الاسم <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4">اللون</th>
+              <th class="p-4 cursor-pointer" onclick="sortTable('statusesTable', 3)">عدد الطلبيات <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4">النوع</th>
+              <th class="p-4">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in statuses %}
+            <tr class="border-t hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600">
+              <td class="p-4 font-mono text-sm text-gray-500 dark:text-gray-400">#{{ s.id }}</td>
+              <td class="p-4 font-medium text-gray-900 dark:text-white">{{ s.name }}</td>
+              <td class="p-4">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded border dark:border-gray-600" style="background:{{ s.color }}"></div>
+                  <span class="text-sm font-mono text-gray-500 dark:text-gray-400">{{ s.color }}</span>
+                </div>
+              </td>
+              <td class="p-4 text-center">
+                <span class="badge {% if s.orders|length > 0 %}badge-info{% else %}badge-gray{% endif %}">
+                  {{ s.orders|length }}
+                </span>
+              </td>
+              <td class="p-4">
+                {% if s.is_system %}
+                <span class="badge badge-warning">نظام</span>
+                {% else %}
+                <span class="badge badge-success">مخصص</span>
+                {% endif %}
+              </td>
+              <td class="p-4">
+                {% if not s.is_system %}
+                <div class="flex flex-col gap-2">
+                  <button onclick="editStatus({{ s.id }})" class="btn-warning text-sm flex items-center gap-1">
+                    <i class="fas fa-edit"></i>
+                    تعديل
+                  </button>
+                  <button onclick="confirmDeleteStatus({{ s.id }}, '{{ s.name }}')" 
+                         class="btn-danger text-sm flex items-center gap-1" {% if s.orders|length > 0 %}disabled title="لا يمكن حذف حالة مرتبطة بطلبيات"{% endif %}>
+                    <i class="fas fa-trash"></i>
+                    حذف
+                  </button>
+                </div>
+                {% else %}
+                <span class="text-gray-400 text-sm">حالة نظام</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- رسالة إذا لم يكن هناك حالات -->
+      {% if not statuses %}
+      <div class="card p-8 text-center">
+        <i class="fas fa-tags text-4xl text-gray-300 mb-4"></i>
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">لا توجد حالات</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">ابدأ بإضافة أول حالة إلى النظام</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- تبويب إدارة الموردين -->
+    <div id="suppliers-tab" class="tab-content">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white">🏢 إدارة الموردين</h3>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">إدارة موردين المواد والمنتجات</p>
+        </div>
+        <div class="flex gap-2">
+          <div class="relative">
+            <input type="text" id="suppliersSearch" placeholder="بحث في الموردين..." 
+                   class="form-input pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white" onkeyup="searchTable('suppliersSearch', 'suppliersTable')">
+            <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          </div>
+          <button onclick="showModal('addSupplierModal')" class="btn-success flex items-center gap-2">
+            <i class="fas fa-plus"></i>
+            إضافة مورد
+          </button>
+        </div>
+      </div>
+
+      <!-- إحصائيات الموردين -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-blue-600">{{ suppliers|length }}</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">إجمالي الموردين</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-green-600">
+            {{ suppliers|selectattr('supplier_purchases')|selectattr('supplier_purchases', 'length')|sum }}
+          </div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">إجمالي المشتريات</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-purple-600">
+            {{ suppliers|map(attribute='phone')|select|list|length }}
+          </div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">موردين بهاتف</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-orange-600">
+            {{ suppliers|map(attribute='address')|select|list|length }}
+          </div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">موردين بعنوان</div>
+        </div>
+      </div>
+
+      <!-- جدول الموردين -->
+      <div class="table-container">
+        <table class="w-full" id="suppliersTable">
+          <thead class="table-header dark:bg-gray-800">
+            <tr>
+              <th class="p-4 cursor-pointer" onclick="sortTable('suppliersTable', 0)"># <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 cursor-pointer" onclick="sortTable('suppliersTable', 1)">اسم المورد <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4">معلومات الاتصال</th>
+              <th class="p-4 cursor-pointer" onclick="sortTable('suppliersTable', 3)">عدد المشتريات <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4">تاريخ الإضافة</th>
+              <th class="p-4">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for supplier in suppliers %}
+            <tr class="border-t hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600">
+              <td class="p-4 font-mono text-sm text-gray-500 dark:text-gray-400">#{{ supplier.id }}</td>
+              <td class="p-4">
+                <div class="font-semibold text-gray-900 dark:text-white">{{ supplier.name }}</div>
+              </td>
+              <td class="p-4">
+                <div class="space-y-1 text-sm">
+                  {% if supplier.phone %}
+                  <div class="text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                    <i class="fas fa-phone text-gray-400"></i>
+                    {{ supplier.phone }}
+                  </div>
+                  {% endif %}
+                  {% if supplier.address %}
+                  <div class="text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                    <i class="fas fa-map-marker-alt text-gray-400"></i>
+                    {{ supplier.address }}
+                  </div>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="p-4 text-center">
+                <span class="badge {% if supplier.supplier_purchases|length > 0 %}badge-info{% else %}badge-gray{% endif %}">
+                  {{ supplier.supplier_purchases|length }}
+                </span>
+              </td>
+              <td class="p-4 text-sm text-gray-600 dark:text-gray-400">
+                {{ supplier.created_at.strftime('%Y-%m-%d') }}
+              </td>
+              <td class="p-4">
+                <div class="flex flex-col gap-2">
+                  <button onclick="editSupplier({{ supplier.id }})" class="btn-warning text-sm flex items-center gap-1">
+                    <i class="fas fa-edit"></i>
+                    تعديل
+                  </button>
+                  <button onclick="confirmDeleteSupplier({{ supplier.id }}, '{{ supplier.name }}')" 
+                         class="btn-danger text-sm flex items-center gap-1" 
+                         {% if supplier.supplier_purchases|length > 0 %}disabled title="لا يمكن حذف مورد مرتبط بمشتريات"{% endif %}>
+                    <i class="fas fa-trash"></i>
+                    حذف
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- رسالة إذا لم يكن هناك موردين -->
+      {% if not suppliers %}
+      <div class="card p-8 text-center">
+        <i class="fas fa-truck text-4xl text-gray-300 mb-4"></i>
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">لا يوجد موردين</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">ابدأ بإضافة أول مورد إلى النظام</p>
+        <button onclick="showModal('addSupplierModal')" class="btn-primary">
+          <i class="fas fa-plus ml-2"></i>
+          إضافة أول مورد
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- تبويب إدارة المنتجات -->
+    <div id="products-tab" class="tab-content">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white">📦 إدارة المنتجات</h3>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">إدارة منتجات ومواد النظام</p>
+        </div>
+        <div class="flex gap-2">
+          <div class="relative">
+            <input type="text" id="productsSearch" placeholder="بحث في المنتجات..." 
+                   class="form-input pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white" onkeyup="searchTable('productsSearch', 'productsTable')">
+            <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          </div>
+          <button onclick="showModal('addProductModal')" class="btn-success flex items-center gap-2">
+            <i class="fas fa-plus"></i>
+            إضافة منتج
+          </button>
+        </div>
+      </div>
+
+      <!-- جدول المنتجات -->
+      <div class="table-container">
+        <table class="w-full" id="productsTable">
+          <thead class="table-header dark:bg-gray-800">
+            <tr>
+              <th class="p-4 cursor-pointer" onclick="sortTable('productsTable', 0)"># <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 cursor-pointer" onclick="sortTable('productsTable', 1)">اسم المنتج <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 cursor-pointer" onclick="sortTable('productsTable', 2)">التصنيف <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 cursor-pointer" onclick="sortTable('productsTable', 3)">عدد المشتريات <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4">تاريخ الإضافة</th>
+              <th class="p-4">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+            <tr class="border-t hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600">
+              <td class="p-4 font-mono text-sm text-gray-500 dark:text-gray-400">#{{ product.id }}</td>
+              <td class="p-4">
+                <div class="font-semibold text-gray-900 dark:text-white">{{ product.name }}</div>
+              </td>
+              <td class="p-4">
+                {% if product.category %}
+                <span class="badge" style="background: {{ product.category.color }}; color: white;">
+                  <i class="fas {{ product.category.icon }} ml-1"></i>
+                  {{ product.category.name }}
+                </span>
+                {% else %}
+                <span class="text-gray-500 dark:text-gray-400 text-sm">بدون تصنيف</span>
+                {% endif %}
+              </td>
+              <td class="p-4 text-center">
+                <span class="badge {% if product.product_purchases|length > 0 %}badge-info{% else %}badge-gray{% endif %}">
+                  {{ product.product_purchases|length }}
+                </span>
+              </td>
+              <td class="p-4 text-sm text-gray-600 dark:text-gray-400">
+                {{ product.created_at.strftime('%Y-%m-%d') }}
+              </td>
+              <td class="p-4">
+                <div class="flex flex-col gap-2">
+                  <button onclick="editProduct({{ product.id }})" class="btn-warning text-sm flex items-center gap-1">
+                    <i class="fas fa-edit"></i>
+                    تعديل
+                  </button>
+                  <button onclick="confirmDeleteProduct({{ product.id }}, '{{ product.name }}')" 
+                         class="btn-danger text-sm flex items-center gap-1"
+                         {% if product.product_purchases|length > 0 %}disabled title="لا يمكن حذف منتج مرتبط بمشتريات"{% endif %}>
+                    <i class="fas fa-trash"></i>
+                    حذف
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- رسالة إذا لم يكن هناك منتجات -->
+      {% if not products %}
+      <div class="card p-8 text-center">
+        <i class="fas fa-box text-4xl text-gray-300 mb-4"></i>
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">لا يوجد منتجات</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">ابدأ بإضافة أول منتج إلى النظام</p>
+        <button onclick="showModal('addProductModal')" class="btn-primary">
+          <i class="fas fa-plus ml-2"></i>
+          إضافة أول منتج
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- تبويب التصنيفات -->
+    <div id="categories-tab" class="tab-content">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white">📁 إدارة التصنيفات</h3>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">إدارة تصنيفات المصاريف والمنتجات</p>
+        </div>
+        <div class="flex gap-2">
+          <div class="relative">
+            <input type="text" id="categoriesSearch" placeholder="بحث في التصنيفات..." 
+                   class="form-input pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white" onkeyup="searchTable('categoriesSearch', 'categoriesTable')">
+            <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          </div>
+          <button onclick="showModal('addCategoryModal')" class="btn-success flex items-center gap-2">
+            <i class="fas fa-plus"></i>
+            إضافة تصنيف
+          </button>
+        </div>
+      </div>
+
+      <!-- شبكة التصنيفات -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="categoriesTable">
+        {% for category in expense_categories %}
+        <div class="card p-6 hover:shadow-lg transition-all duration-300">
+          <div class="flex items-center gap-4 mb-4">
+            <div class="text-3xl">{{ category.icon }}</div>
+            <div class="flex-1">
+              <h4 class="font-semibold text-lg text-gray-900 dark:text-white">{{ category.name }}</h4>
+              <p class="text-sm text-gray-600 dark:text-gray-400">{{ category.category_expenses|length }} مصروف</p>
+            </div>
+          </div>
+          
+          <div class="flex items-center justify-between mb-4">
+            <div class="w-8 h-8 rounded border dark:border-gray-600" style="background: {{ category.color }}"></div>
+            <span class="text-sm font-mono text-gray-500 dark:text-gray-400">{{ category.color }}</span>
+          </div>
+          
+          <div class="flex gap-2">
+            <button onclick="editCategory({{ category.id }})" class="btn-warning flex-1 flex items-center justify-center gap-1">
+              <i class="fas fa-edit"></i>
+              تعديل
+            </button>
+            <button onclick="confirmDeleteCategory({{ category.id }}, '{{ category.name }}')" 
+                   class="btn-danger flex items-center justify-center gap-1 px-3"
+                   {% if category.category_expenses|length > 0 %}disabled title="لا يمكن حذف تصنيف مرتبط بمصاريف"{% endif %}>
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- رسالة إذا لم يكن هناك تصنيفات -->
+      {% if not expense_categories %}
+      <div class="card p-8 text-center">
+        <i class="fas fa-folder text-4xl text-gray-300 mb-4"></i>
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">لا توجد تصنيفات</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">ابدأ بإضافة أول تصنيف إلى النظام</p>
+        <button onclick="showModal('addCategoryModal')" class="btn-primary">
+          <i class="fas fa-plus ml-2"></i>
+          إضافة أول تصنيف
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- تبويب إدارة العمال -->
+    <div id="workers-tab" class="tab-content">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white">👷 إدارة حسابات العمال</h3>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">إدارة حسابات تسجيل دخول العمال - صلاحيات محدودة</p>
+        </div>
+        <div class="flex gap-2">
+          <div class="relative">
+            <input type="text" id="workersSearch" placeholder="بحث في العمال..." 
+                   class="form-input pr-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white" onkeyup="searchTable('workersSearch', 'workersTable')">
+            <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- إحصائيات العمال -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-blue-600">{{ workers|length }}</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">إجمالي العمال</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-green-600">{{ workers|selectattr('is_login_active', 'equalto', true)|list|length }}</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">حسابات نشطة</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-purple-600">{{ workers|selectattr('last_login')|list|length }}</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">دخلوا النظام</div>
+        </div>
+        <div class="card p-4 text-center">
+          <div class="text-2xl font-bold text-orange-600">{{ workers|selectattr('is_active', 'equalto', true)|list|length }}</div>
+          <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">عمال نشطين</div>
+        </div>
+      </div>
+
+      <!-- جدول العمال -->
+      <div class="table-container">
+        <table class="w-full" id="workersTable">
+          <thead class="table-header dark:bg-gray-800">
+            <tr>
+              <th class="p-4 cursor-pointer" onclick="sortTable('workersTable', 0)"># <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 cursor-pointer" onclick="sortTable('workersTable', 1)">اسم العامل <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4">معلومات الحساب</th>
+              <th class="p-4 cursor-pointer" onclick="sortTable('workersTable', 3)">حالة الحساب <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4 cursor-pointer" onclick="sortTable('workersTable', 4)">آخر دخول <i class="fas fa-sort ml-1"></i></th>
+              <th class="p-4">العمليات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for worker in workers %}
+            <tr class="border-t hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600">
+              <td class="p-4 font-mono text-sm text-gray-500 dark:text-gray-400">#{{ worker.id }}</td>
+              <td class="p-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-semibold">
+                    {{ worker.name[0]|upper }}
+                  </div>
+                  <div>
+                    <div class="font-semibold text-gray-900 dark:text-white">{{ worker.name }}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ worker.phone }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="p-4">
+                <div class="space-y-1 text-sm">
+                  <div class="text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                    <i class="fas fa-user text-gray-400"></i>
+                    {{ worker.username }}
+                  </div>
+                  <div class="text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                    <i class="fas fa-key text-gray-400"></i>
+                    <span class="font-mono">{{ worker.get_original_password() }}</span>
+                  </div>
+                </div>
+              </td>
+              <td class="p-4">
+                <div class="space-y-2">
+                  {% if worker.is_login_active %}
+                  <span class="badge badge-success flex items-center gap-1 w-fit">
+                    <i class="fas fa-check-circle"></i>
+                    نشط
+                  </span>
+                  {% else %}
+                  <span class="badge badge-danger flex items-center gap-1 w-fit">
+                    <i class="fas fa-pause-circle"></i>
+                    غير نشط
+                  </span>
+                  {% endif %}
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    {% if worker.is_active %}
+                    <span class="text-green-600">عامل نشط</span>
+                    {% else %}
+                    <span class="text-red-600">عامل مجمد</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+              <td class="p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-300">
+                  {% if worker.last_login %}
+                  <div>{{ worker.last_login.strftime('%Y-%m-%d') }}</div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">{{ worker.last_login.strftime('%H:%M') }}</div>
+                  {% else %}
+                  <span class="text-gray-400">لم يسجل دخول</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="p-4">
+                <div class="flex flex-col gap-2">
+                  <button onclick="resetWorkerPassword({{ worker.id }}, '{{ worker.name }}')"
+                         class="flex items-center gap-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 p-2 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors text-sm">
+                    <i class="fas fa-key text-xs"></i>
+                    إعادة تعيين كلمة المرور
+                  </button>
+                  
+                  <button onclick="toggleWorkerLogin({{ worker.id }}, {{ worker.is_login_active|lower }})"
+                         class="flex items-center gap-2 {% if worker.is_login_active %}text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300{% else %}text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300{% endif %} p-2 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors text-sm">
+                    <i class="fas {% if worker.is_login_active %}fa-pause{% else %}fa-play{% endif %} text-xs"></i>
+                    {{ "إيقاف" if worker.is_login_active else "تفعيل" }} الحساب
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- رسالة إذا لم يكن هناك عمال -->
+      {% if not workers %}
+      <div class="card p-8 text-center">
+        <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">لا يوجد عمال</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">يتم إضافة العمال من صفحة إدارة العمال</p>
+        <a href="{{ url_for('workers') }}" class="btn-primary">
+          <i class="fas fa-users ml-2"></i>
+          الذهاب لإدارة العمال
+        </a>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- تبويب النسخ الاحتياطي -->
+    <div id="backup-tab" class="tab-content">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- النسخ الاحتياطي -->
+        <div class="card p-6">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+              <i class="fas fa-download text-blue-600 dark:text-blue-400 text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white">النسخ الاحتياطي</h3>
+              <p class="text-gray-600 dark:text-gray-400 text-sm">إنشاء نسخة احتياطية من قاعدة البيانات</p>
+            </div>
+          </div>
+          
+          <div class="space-y-4">
+            <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-info-circle text-blue-600 text-xl"></i>
+                <div>
+                  <h4 class="font-medium text-blue-900 dark:text-blue-100">معلومات النسخ الاحتياطي</h4>
+                  <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    النسخ الاحتياطي يحفظ جميع بيانات النظام بما في ذلك الطلبيات، العمال، المصاريف، والديون.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div class="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div class="text-2xl font-bold text-gray-700 dark:text-gray-300">{{ total_orders }}</div>
+                <div class="text-gray-600 dark:text-gray-400 mt-1">طلبية</div>
+              </div>
+              <div class="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div class="text-2xl font-bold text-gray-700 dark:text-gray-300">{{ total_workers }}</div>
+                <div class="text-gray-600 dark:text-gray-400 mt-1">عامل</div>
+              </div>
+              <div class="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div class="text-2xl font-bold text-gray-700 dark:text-gray-300">{{ total_expenses }}</div>
+                <div class="text-gray-600 dark:text-gray-400 mt-1">مصروف</div>
+              </div>
+              <div class="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div class="text-2xl font-bold text-gray-700 dark:text-gray-300">{{ total_debts }}</div>
+                <div class="text-gray-600 dark:text-gray-400 mt-1">دين</div>
+              </div>
+            </div>
+            
+            <button onclick="createBackup()" class="btn-success w-full flex items-center justify-center gap-2">
+              <i class="fas fa-download"></i>
+              إنشاء نسخة احتياطية
+            </button>
+          </div>
+        </div>
+
+        <!-- استعادة النسخ -->
+        <div class="card p-6">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+              <i class="fas fa-upload text-green-600 dark:text-green-400 text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white">استعادة النسخ</h3>
+              <p class="text-gray-600 dark:text-gray-400 text-sm">استعادة النظام من نسخة احتياطية</p>
+            </div>
+          </div>
+          
+          <div class="space-y-4">
+            <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-exclamation-triangle text-yellow-600 text-xl"></i>
+                <div>
+                  <h4 class="font-medium text-yellow-900 dark:text-yellow-100">تحذير مهم</h4>
+                  <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                    استعادة النسخة الاحتياطية ستحذف جميع البيانات الحالية وتستبدلها بالبيانات من النسخة.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                اختيار ملف النسخة الاحتياطية
+              </label>
+              <input type="file" id="backupFile" accept=".db,.sqlite,.backup" class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">الملفات المدعومة: .db, .sqlite, .backup</p>
+            </div>
+            
+            <button onclick="restoreBackup()" class="btn-warning w-full flex items-center justify-center gap-2">
+              <i class="fas fa-upload"></i>
+              استعادة من نسخة احتياطية
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- سجل النسخ الاحتياطية -->
+      <div class="card p-6 mt-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+            <i class="fas fa-history text-purple-600 dark:text-purple-400 text-xl"></i>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white">سجل النسخ الاحتياطية</h3>
+            <p class="text-gray-600 dark:text-gray-400 text-sm">عرض وإدارة النسخ الاحتياطية السابقة</p>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="w-full">
+            <thead class="table-header dark:bg-gray-800">
+              <tr>
+                <th class="p-4">اسم الملف</th>
+                <th class="p-4">الحجم</th>
+                <th class="p-4">تاريخ الإنشاء</th>
+                <th class="p-4">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="backupHistory">
+              <!-- سيتم ملؤه بالجافاسكريبت -->
+            </tbody>
+          </table>
+        </div>
+
+        <div id="noBackupsMessage" class="card p-8 text-center hidden">
+          <i class="fas fa-history text-4xl text-gray-300 mb-4"></i>
+          <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">لا توجد نسخ احتياطية</h3>
+          <p class="text-gray-500 dark:text-gray-400 mb-4">قم بإنشاء أول نسخة احتياطية للنظام</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== جميع المودالات ========== -->
+
+<!-- مودال إضافة مدير -->
+<div id="addUserModal" class="modal">
+  <div class="modal-content w-full max-w-md">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white">👤 إضافة مدير شامل جديد</h3>
+        <button onclick="hideModal('addUserModal')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl transition-colors">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form method="POST" action="{{ url_for('add_settings_user') }}" class="space-y-4" id="addUserForm">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <i class="fas fa-user ml-2 text-gray-400"></i>
+            اسم المستخدم *
+          </label>
+          <input type="text" name="username" required class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="اسم المستخدم" 
+                 pattern="[a-zA-Z0-9_]{3,20}" title="يجب أن يكون اسم المستخدم بين 3 و 20 حرف (أحرف إنجليزية، أرقام، _)">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <i class="fas fa-envelope ml-2 text-gray-400"></i>
+            البريد الإلكتروني
+          </label>
+          <input type="email" name="email" class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="email@example.com">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <i class="fas fa-lock ml-2 text-gray-400"></i>
+            كلمة المرور *
+          </label>
+          <input type="password" name="password" required class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="كلمة المرور" 
+                 minlength="6" id="userPassword">
+          <div class="password-strength mt-2 hidden">
+            <div class="flex gap-1">
+              <div class="h-1 flex-1 bg-gray-200 rounded"></div>
+              <div class="h-1 flex-1 bg-gray-200 rounded"></div>
+              <div class="h-1 flex-1 bg-gray-200 rounded"></div>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" id="passwordStrengthText"></p>
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <i class="fas fa-user-tag ml-2 text-gray-400"></i>
+            الاسم الكامل
+          </label>
+          <input type="text" name="full_name" class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="الاسم الكامل">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <i class="fas fa-phone ml-2 text-gray-400"></i>
+            رقم الهاتف
+          </label>
+          <input type="tel" name="phone" class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="+213 XXX XX XX XX">
+        </div>
+        
+        <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div class="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+            <i class="fas fa-info-circle"></i>
+            <span class="text-sm">هذا المدير سيكون لديه جميع الصلاحيات في النظام</span>
+          </div>
+        </div>
+
+        <div class="flex gap-3 pt-4">
+          <button type="button" onclick="hideModal('addUserModal')" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            إلغاء
+          </button>
+          <button type="submit" class="flex-1 btn-success flex items-center justify-center gap-2">
+            <i class="fas fa-save"></i>
+            حفظ المدير الشامل
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- باقي المودالات (تعديل مدير، موردين، منتجات، تصنيفات) -->
+<!-- سيتم تضمينها بنفس النمط مع التعديلات اللازمة -->
+
+<!-- مودال تأكيد الحذف -->
+<div id="confirmDeleteModal" class="modal">
+  <div class="modal-content w-full max-w-md">
+    <div class="p-6 text-center">
+      <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-exclamation-triangle text-red-600 dark:text-red-400 text-2xl"></i>
+      </div>
+      
+      <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2" id="confirmDeleteTitle">تأكيد الحذف</h3>
+      <p class="text-gray-600 dark:text-gray-400 mb-6" id="confirmDeleteMessage">هل أنت متأكد من أنك تريد الحذف؟</p>
+      
+      <div class="flex gap-3">
+        <button onclick="hideModal('confirmDeleteModal')" class="flex-1 btn-secondary">
+          إلغاء
+        </button>
+        <button onclick="proceedWithDelete()" class="flex-1 btn-danger flex items-center justify-center gap-2">
+          <i class="fas fa-trash"></i>
+          نعم، احذف
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- مودال إعادة تعيين كلمة المرور -->
+<div id="resetPasswordModal" class="modal">
+  <div class="modal-content w-full max-w-md">
+    <div class="p-6 text-center">
+      <div class="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-key text-green-600 dark:text-green-400 text-2xl"></i>
+      </div>
+      
+      <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2" id="resetPasswordTitle">إعادة تعيين كلمة المرور</h3>
+      <p class="text-gray-600 dark:text-gray-400 mb-4" id="resetPasswordMessage"></p>
+      
+      <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4">
+        <div class="font-mono text-lg font-bold text-gray-800 dark:text-gray-200" id="newPasswordDisplay"></div>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">كلمة المرور الجديدة</p>
+      </div>
+      
+      <div class="flex gap-3">
+        <button onclick="hideModal('resetPasswordModal')" class="flex-1 btn-secondary">
+          إغلاق
+        </button>
+        <button onclick="copyPassword()" class="flex-1 btn-success flex items-center justify-center gap-2">
+          <i class="fas fa-copy"></i>
+          نسخ كلمة المرور
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== المتغيرات العامة ==========
+let currentDeleteAction = null;
+let currentDeleteId = null;
+let currentDeleteType = null;
+let currentNewPassword = '';
+
+// ========== إدارة التبويبات ==========
+function showTab(tabName) {
+  // إخفاء جميع المحتويات
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  // إزالة النشط من جميع الأزرار
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+    btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+  });
+  
+  // إظهار المحتوى المطلوب
+  const targetTab = document.getElementById(tabName + '-tab');
+  if (targetTab) {
+    targetTab.classList.add('active');
+  }
+  
+  // تفعيل الزر المطلوب
+  const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+  if (activeBtn) {
+    activeBtn.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+    activeBtn.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+  }
+  
+  // حفظ التبويب النشط في localStorage
+  localStorage.setItem('activeSettingsTab', tabName);
+  
+  // تحميل بيانات إضافية حسب التبويب
+  if (tabName === 'backup') {
+    loadBackupHistory();
+  }
+}
+
+// ========== وظائف البحث والترتيب ==========
+function searchTable(inputId, tableId) {
+  const input = document.getElementById(inputId);
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  
+  const rows = table.getElementsByTagName('tbody')[0]?.getElementsByTagName('tr') || [];
+  const filter = input.value.toLowerCase();
+  
+  for (let row of rows) {
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(filter) ? '' : 'none';
+  }
+}
+
+function sortTable(tableId, columnIndex) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  
+  const tbody = table.getElementsByTagName('tbody')[0];
+  const rows = Array.from(tbody.getElementsByTagName('tr'));
+  const isNumeric = !isNaN(parseFloat(rows[0]?.cells[columnIndex]?.textContent));
+  
+  rows.sort((a, b) => {
+    const aValue = a.cells[columnIndex].textContent.trim();
+    const bValue = b.cells[columnIndex].textContent.trim();
+    
+    if (isNumeric) {
+      return parseFloat(aValue) - parseFloat(bValue);
+    } else {
+      return aValue.localeCompare(bValue, 'ar');
+    }
+  });
+  
+  // إعادة ترتيب الصفوف
+  rows.forEach(row => tbody.appendChild(row));
+}
+
+// ========== وظائف إدارة المديرين ==========
+async function editUser(userId) {
+  try {
+    const response = await fetch(`/api/user/${userId}`);
+    const user = await response.json();
+    
+    if (user.success) {
+      document.getElementById('editUserId').value = user.id;
+      document.getElementById('editUsername').value = user.username;
+      document.getElementById('editEmail').value = user.email || '';
+      document.getElementById('editFullName').value = user.full_name || '';
+      document.getElementById('editPhone').value = user.phone || '';
+      
+      // تحديث action الخاص بالنموذج
+      document.getElementById('editUserForm').action = `/settings/user/edit/${userId}`;
+      
+      showModal('editUserModal');
+    } else {
+      showToast('حدث خطأ في جلب بيانات المدير', 'error');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    showToast('حدث خطأ في جلب بيانات المدير', 'error');
+  }
+}
+
+async function resetUserPassword(userId, username) {
+  if (confirm(`هل تريد إعادة تعيين كلمة مرور المدير "${username}"؟`)) {
+    try {
+      const response = await fetch(`/settings/user/reset-password/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        currentNewPassword = result.new_password;
+        document.getElementById('resetPasswordTitle').textContent = `إعادة تعيين كلمة مرور ${username}`;
+        document.getElementById('resetPasswordMessage').textContent = `تم إعادة تعيين كلمة مرور المدير "${username}" بنجاح`;
+        document.getElementById('newPasswordDisplay').textContent = result.new_password;
+        showModal('resetPasswordModal');
+      } else {
+        showToast(result.error, 'error');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showToast('حدث خطأ في إعادة تعيين كلمة المرور', 'error');
+    }
+  }
+}
+
+async function toggleUserStatus(userId, isActive) {
+  const action = isActive ? 'إيقاف' : 'تفعيل';
+  if (confirm(`هل تريد ${action} هذا المدير؟`)) {
+    try {
+      const response = await fetch(`/settings/user/toggle/${userId}`, { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        showToast(result.message, 'success');
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast(result.error, 'error');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showToast('حدث خطأ في تغيير حالة المدير', 'error');
+    }
+  }
+}
+
+function confirmDeleteUser(userId, username) {
+  currentDeleteId = userId;
+  currentDeleteType = 'user';
+  currentDeleteAction = () => deleteUser(userId);
+  
+  document.getElementById('confirmDeleteTitle').textContent = 'حذف المدير';
+  document.getElementById('confirmDeleteMessage').textContent = `هل أنت متأكد من حذف المدير "${username}"؟ لا يمكن التراجع عن هذا الإجراء.`;
+  
+  showModal('confirmDeleteModal');
+}
+
+async function deleteUser(userId) {
+  try {
+    const response = await fetch(`/settings/user/delete/${userId}`, { 
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast(result.message, 'success');
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      showToast(result.error, 'error');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    showToast('حدث خطأ في حذف المدير', 'error');
+  }
+}
+
+// ========== وظائف إدارة العمال ==========
+async function resetWorkerPassword(workerId, workerName) {
+  if (confirm(`هل تريد إعادة تعيين كلمة مرور العامل "${workerName}"؟`)) {
+    try {
+      const response = await fetch(`/workers/${workerId}/reset_password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        currentNewPassword = result.new_password;
+        document.getElementById('resetPasswordTitle').textContent = `إعادة تعيين كلمة مرور ${workerName}`;
+        document.getElementById('resetPasswordMessage').textContent = `تم إعادة تعيين كلمة مرور العامل "${workerName}" بنجاح`;
+        document.getElementById('newPasswordDisplay').textContent = result.new_password;
+        showModal('resetPasswordModal');
+      } else {
+        showToast(result.error, 'error');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showToast('حدث خطأ في إعادة تعيين كلمة المرور', 'error');
+    }
+  }
+}
+
+async function toggleWorkerLogin(workerId, isActive) {
+  const action = isActive ? 'إيقاف' : 'تفعيل';
+  if (confirm(`هل تريد ${action} حساب تسجيل دخول هذا العامل؟`)) {
+    try {
+      const response = await fetch(`/workers/${workerId}/toggle_login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        showToast(result.message, 'success');
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast(result.error, 'error');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showToast('حدث خطأ في تغيير حالة الحساب', 'error');
+    }
+  }
+}
+
+// ========== وظائف النسخ الاحتياطي ==========
+async function createBackup() {
+  if (confirm('هل تريد إنشاء نسخة احتياطية من قاعدة البيانات؟')) {
+    try {
+      showToast('جاري إنشاء النسخة الاحتياطية...', 'info');
+      
+      const response = await fetch('/api/backup/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        showToast('تم إنشاء النسخة الاحتياطية بنجاح', 'success');
+        loadBackupHistory();
+      } else {
+        showToast(result.error, 'error');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showToast('حدث خطأ في إنشاء النسخة الاحتياطية', 'error');
+    }
+  }
+}
+
+async function restoreBackup() {
+  const fileInput = document.getElementById('backupFile');
+  const file = fileInput.files[0];
+  
+  if (!file) {
+    showToast('يرجى اختيار ملف النسخة الاحتياطية', 'error');
+    return;
+  }
+  
+  if (!confirm('تحذير: استعادة النسخة الاحتياطية ستحذف جميع البيانات الحالية. هل تريد المتابعة؟')) {
+    return;
+  }
+  
+  try {
+    showToast('جاري استعادة النسخة الاحتياطية...', 'info');
+    
+    const formData = new FormData();
+    formData.append('backup_file', file);
+    
+    const response = await fetch('/api/backup/restore', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast('تم استعادة النسخة الاحتياطية بنجاح', 'success');
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      showToast(result.error, 'error');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    showToast('حدث خطأ في استعادة النسخة الاحتياطية', 'error');
+  }
+}
+
+async function loadBackupHistory() {
+  try {
+    const response = await fetch('/api/backup/history');
+    const result = await response.json();
+    
+    const backupHistory = document.getElementById('backupHistory');
+    const noBackupsMessage = document.getElementById('noBackupsMessage');
+    
+    if (result.success && result.backups.length > 0) {
+      backupHistory.innerHTML = result.backups.map(backup => `
+        <tr class="border-t hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600">
+          <td class="p-4 font-medium text-gray-900 dark:text-white">${backup.filename}</td>
+          <td class="p-4 text-sm text-gray-600 dark:text-gray-400">${backup.size}</td>
+          <td class="p-4 text-sm text-gray-600 dark:text-gray-400">${backup.created_at}</td>
+          <td class="p-4">
+            <div class="flex gap-2">
+              <button onclick="downloadBackup('${backup.filename}')" class="btn-success text-sm flex items-center gap-1">
+                <i class="fas fa-download"></i>
+                تحميل
+              </button>
+              <button onclick="deleteBackup('${backup.filename}')" class="btn-danger text-sm flex items-center gap-1">
+                <i class="fas fa-trash"></i>
+                حذف
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+      
+      backupHistory.style.display = '';
+      noBackupsMessage.classList.add('hidden');
+    } else {
+      backupHistory.style.display = 'none';
+      noBackupsMessage.classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('Error loading backup history:', error);
+  }
+}
+
+async function downloadBackup(filename) {
+  try {
+    const response = await fetch(`/api/backup/download/${filename}`);
+    if (response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } else {
+      showToast('حدث خطأ في تحميل النسخة الاحتياطية', 'error');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    showToast('حدث خطأ في تحميل النسخة الاحتياطية', 'error');
+  }
+}
+
+async function deleteBackup(filename) {
+  if (confirm(`هل تريد حذف النسخة الاحتياطية "${filename}"؟`)) {
+    try {
+      const response = await fetch(`/api/backup/delete/${filename}`, {
+        method: 'DELETE'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        showToast('تم حذف النسخة الاحتياطية بنجاح', 'success');
+        loadBackupHistory();
+      } else {
+        showToast(result.error, 'error');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showToast('حدث خطأ في حذف النسخة الاحتياطية', 'error');
+    }
+  }
+}
+
+// ========== وظائف المساعدة ==========
+function copyPassword() {
+  navigator.clipboard.writeText(currentNewPassword).then(() => {
+    showToast('تم نسخ كلمة المرور إلى الحافظة', 'success');
+  }).catch(() => {
+    showToast('فشل في نسخ كلمة المرور', 'error');
+  });
+}
+
+function showToast(message, type = 'success') {
+  const toast = document.createElement('div');
+  toast.className = `fixed top-4 left-4 z-50 p-4 rounded-lg shadow-lg transform transition-all duration-300 ${
+    type === 'success' ? 'bg-green-500 text-white' : 
+    type === 'error' ? 'bg-red-500 text-white' : 
+    type === 'info' ? 'bg-blue-500 text-white' : 
+    'bg-gray-500 text-white'
+  }`;
+  toast.textContent = message;
+  toast.style.opacity = '0';
+  toast.style.transform = 'translateY(-20px)';
+  
+  document.body.appendChild(toast);
+  
+  // إظهار الرسالة
+  setTimeout(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+  }, 100);
+  
+  // إخفاء الرسالة بعد 3 ثوان
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-20px)';
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
+  }, 3000);
+}
+
+// تهيئة النظام
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSettingsSystem();
+    loadSystemData();
+});
+
+function initializeSettingsSystem() {
+    // استعادة التبويب النشط
+    const activeTab = localStorage.getItem('activeSettingsTab') || 'users';
+    showTab(activeTab);
+    
+    // تهيئة منتقي الألوان
+    initializeColorPickers();
+    
+    // تهيئة تحقق كلمات المرور
+    initializePasswordValidation();
+    
+    // تحميل البيانات الأولية
+    loadInitialData();
+}
+
+function initializeColorPickers() {
+    // ربط منتقي الألوان مع الحقول النصية
+    document.querySelectorAll('.color-picker-group').forEach(group => {
+        const picker = group.querySelector('input[type="color"]');
+        const text = group.querySelector('input[type="text"]');
+        const preview = group.querySelector('.color-preview');
+        
+        if (picker && text) {
+            picker.addEventListener('input', function() {
+                text.value = this.value;
+                if (preview) preview.style.backgroundColor = this.value;
+            });
+            
+            text.addEventListener('input', function() {
+                if (this.value.match(/^#[0-9A-F]{6}$/i)) {
+                    picker.value = this.value;
+                    if (preview) preview.style.backgroundColor = this.value;
+                }
+            });
+        }
+    });
+}
+
+function initializePasswordValidation() {
+    const passwordInputs = document.querySelectorAll('input[type="password"]');
+    passwordInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            validatePasswordStrength(this);
+        });
+    });
+}
+
+function validatePasswordStrength(input) {
+    const strengthContainer = input.parentNode.querySelector('.password-strength');
+    if (!strengthContainer) return;
+    
+    const strengthBars = strengthContainer.querySelectorAll('.strength-bar');
+    const strengthText = strengthContainer.querySelector('.strength-text');
+    
+    if (input.value.length === 0) {
+        strengthContainer.classList.add('hidden');
+        return;
+    }
+    
+    strengthContainer.classList.remove('hidden');
+    
+    let strength = 0;
+    if (input.value.length >= 6) strength++;
+    if (input.value.match(/[a-z]/) && input.value.match(/[A-Z]/)) strength++;
+    if (input.value.match(/\d/) && input.value.match(/[^a-zA-Z\d]/)) strength++;
+    
+    strengthBars.forEach((bar, index) => {
+        bar.className = `strength-bar h-1 flex-1 rounded ${
+            index < strength ? 
+            (strength === 1 ? 'bg-red-500' :
+             strength === 2 ? 'bg-yellow-500' : 'bg-green-500') :
+            'bg-gray-200'
+        }`;
+    });
+    
+    const strengthLabels = ['ضعيفة جداً', 'ضعيفة', 'جيدة', 'قوية'];
+    strengthText.textContent = strengthLabels[strength] || 'ضعيفة';
+    strengthText.className = `strength-text text-xs mt-1 ${
+        strength <= 1 ? 'text-red-500' :
+        strength === 2 ? 'text-yellow-500' : 'text-green-500'
+    }`;
+}
+
+async function loadInitialData() {
+    try {
+        // تحميل إحصائيات النظام
+        await loadSystemStats();
+        
+        // تحميل سجل النسخ الاحتياطية إذا كان التبويب نشط
+        if (localStorage.getItem('activeSettingsTab') === 'backup') {
+            await loadBackupHistory();
+        }
+    } catch (error) {
+        console.error('Error loading initial data:', error);
+    }
+}
+
+async function loadSystemStats() {
+    try {
+        const response = await fetch('/api/system/stats');
+        if (response.ok) {
+            const stats = await response.json();
+            updateStatsDisplay(stats);
+        }
+    } catch (error) {
+        console.error('Error loading system stats:', error);
+    }
+}
+
+function updateStatsDisplay(stats) {
+    // تحديث عرض الإحصائيات في الواجهة
+    const statElements = {
+        'total-orders': stats.total_orders,
+        'total-workers': stats.total_workers,
+        'total-expenses': stats.total_expenses,
+        'total-debts': stats.total_debts
+    };
+    
+    Object.keys(statElements).forEach(key => {
+        const element = document.getElementById(key);
+        if (element) {
+            element.textContent = statElements[key];
+        }
+    });
+}
+
+// ========== نظام الإشعارات المحسن ==========
+
+class NotificationSystem {
+    constructor() {
+        this.container = this.createContainer();
+    }
+    
+    createContainer() {
+        const container = document.createElement('div');
+        container.className = 'fixed top-4 right-4 z-50 space-y-2 max-w-sm';
+        document.body.appendChild(container);
+        return container;
+    }
+    
+    show(message, type = 'success', duration = 5000) {
+        const toast = document.createElement('div');
+        toast.className = `p-4 rounded-lg shadow-lg transform transition-all duration-300 ${
+            this.getToastClasses(type)
+        }`;
+        toast.innerHTML = `
+            <div class="flex items-center gap-3">
+                <i class="${this.getToastIcon(type)} text-lg"></i>
+                <div class="flex-1">
+                    <div class="font-medium">${this.getToastTitle(type)}</div>
+                    <div class="text-sm opacity-90">${message}</div>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="opacity-70 hover:opacity-100 transition-opacity">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        this.container.appendChild(toast);
+        
+        // إظهار الرسالة
+        setTimeout(() => {
+            toast.classList.remove('opacity-0', 'translate-x-full');
+        }, 10);
+        
+        // إخفاء تلقائي
+        if (duration > 0) {
+            setTimeout(() => {
+                this.hide(toast);
+            }, duration);
+        }
+        
+        return toast;
+    }
+    
+    hide(toast) {
+        toast.classList.add('opacity-0', 'translate-x-full');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }
+    
+    getToastClasses(type) {
+        const classes = {
+            success: 'bg-green-500 text-white border-l-4 border-green-600',
+            error: 'bg-red-500 text-white border-l-4 border-red-600',
+            warning: 'bg-yellow-500 text-white border-l-4 border-yellow-600',
+            info: 'bg-blue-500 text-white border-l-4 border-blue-600'
+        };
+        return classes[type] || classes.info;
+    }
+    
+    getToastIcon(type) {
+        const icons = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-circle',
+            warning: 'fas fa-exclamation-triangle',
+            info: 'fas fa-info-circle'
+        };
+        return icons[type] || icons.info;
+    }
+    
+    getToastTitle(type) {
+        const titles = {
+            success: 'نجاح',
+            error: 'خطأ',
+            warning: 'تحذير',
+            info: 'معلومة'
+        };
+        return titles[type] || titles.info;
+    }
+}
+
+// تهيئة نظام الإشعارات
+const notifications = new NotificationSystem();
+
+// دالة مساعدة للإشعارات
+function showToast(message, type = 'success', duration = 5000) {
+    return notifications.show(message, type, duration);
+}
+
+// ========== نظام إدارة النماذج ==========
+
+class FormManager {
+    constructor() {
+        this.forms = new Map();
+    }
+    
+    registerForm(formId, options = {}) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        
+        this.forms.set(formId, { form, options });
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleSubmit(formId);
+        });
+    }
+    
+    async handleSubmit(formId) {
+        const { form, options } = this.forms.get(formId);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn?.innerHTML;
+        
+        try {
+            // تعطيل الزر أثناء الإرسال
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+            }
+            
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: form.method,
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast(result.message, 'success');
+                
+                // إعادة تعيين النموذج إذا كان مطلوباً
+                if (options.resetOnSuccess) {
+                    form.reset();
+                }
+                
+                // إعادة تحميل الصفحة إذا كان مطلوباً
+                if (options.reloadOnSuccess) {
+                    setTimeout(() => location.reload(), 1000);
+                }
+                
+                // استدعاء رد فعل مخصص
+                if (options.onSuccess) {
+                    options.onSuccess(result);
+                }
+            } else {
+                showToast(result.error, 'error');
+                
+                if (options.onError) {
+                    options.onError(result);
+                }
+            }
+        } catch (error) {
+            console.error('Form submission error:', error);
+            showToast('حدث خطأ في الإرسال', 'error');
+        } finally {
+            // إعادة تمكين الزر
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }
+    }
+}
+
+// تهيئة مدير النماذج
+const formManager = new FormManager();
+
+// تسجيل النماذج الرئيسية
+document.addEventListener('DOMContentLoaded', function() {
+    formManager.registerForm('addUserForm', {
+        resetOnSuccess: true,
+        reloadOnSuccess: true
+    });
+    
+    formManager.registerForm('addSupplierForm', {
+        resetOnSuccess: true,
+        reloadOnSuccess: true
+    });
+    
+    formManager.registerForm('addProductForm', {
+        resetOnSuccess: true,
+        reloadOnSuccess: true
+    });
+    
+    formManager.registerForm('addCategoryForm', {
+        resetOnSuccess: true,
+        reloadOnSuccess: true
+    });
+});
+
+// ========== نظام إدارة الجداول ==========
+
+class TableManager {
+    constructor() {
+        this.tables = new Map();
+    }
+    
+    initializeTable(tableId, options = {}) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        
+        this.tables.set(tableId, { table, options });
+        this.addSorting(table);
+        this.addPagination(table, options);
+    }
+    
+    addSorting(table) {
+        const headers = table.querySelectorAll('th[onclick*="sortTable"]');
+        headers.forEach(header => {
+            header.style.cursor = 'pointer';
+            header.addEventListener('click', function() {
+                const columnIndex = Array.from(this.parentNode.children).indexOf(this);
+                sortTable(table.id, columnIndex);
+            });
+        });
+    }
+    
+    addPagination(table, options) {
+        if (!options.pagination) return;
+        
+        const itemsPerPage = options.itemsPerPage || 10;
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        
+        if (rows.length <= itemsPerPage) return;
+        
+        this.createPaginationControls(table, rows, itemsPerPage);
+    }
+    
+    createPaginationControls(table, rows, itemsPerPage) {
+        const totalPages = Math.ceil(rows.length / itemsPerPage);
+        const controls = document.createElement('div');
+        controls.className = 'flex justify-center items-center gap-2 mt-4';
+        
+        for (let i = 0; i < totalPages; i++) {
+            const button = document.createElement('button');
+            button.className = 'px-3 py-1 rounded border dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700';
+            button.textContent = i + 1;
+            button.addEventListener('click', () => this.showPage(table, rows, i, itemsPerPage));
+            controls.appendChild(button);
+        }
+        
+        table.parentNode.appendChild(controls);
+        this.showPage(table, rows, 0, itemsPerPage);
+    }
+    
+    showPage(table, rows, pageIndex, itemsPerPage) {
+        const start = pageIndex * itemsPerPage;
+        const end = start + itemsPerPage;
+        
+        // إخفاء جميع الصفوف
+        rows.forEach(row => row.style.display = 'none');
+        
+        // إظهار الصفوف في الصفحة المحددة
+        rows.slice(start, end).forEach(row => {
+            row.style.display = '';
+        });
+    }
+}
+
+// تهيئة مدير الجداول
+const tableManager = new TableManager();
+
+// ========== نظام النسخ الاحتياطي المحسن ==========
+
+async function loadBackupHistory() {
+    try {
+        const response = await fetch('/api/backup/history');
+        const result = await response.json();
+        
+        const backupHistory = document.getElementById('backupHistory');
+        const noBackupsMessage = document.getElementById('noBackupsMessage');
+        
+        if (result.success && result.backups.length > 0) {
+            backupHistory.innerHTML = result.backups.map(backup => `
+                <tr class="border-t hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600">
+                    <td class="p-4">
+                        <div class="font-medium text-gray-900 dark:text-white">${backup.filename}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${backup.description || 'نسخة احتياطية للنظام'}</div>
+                    </td>
+                    <td class="p-4 text-sm text-gray-600 dark:text-gray-400">${backup.size}</td>
+                    <td class="p-4 text-sm text-gray-600 dark:text-gray-400">${backup.created_at}</td>
+                    <td class="p-4">
+                        <div class="flex gap-2">
+                            <button onclick="downloadBackup('${backup.filename}')" 
+                                    class="btn-success text-sm flex items-center gap-1">
+                                <i class="fas fa-download"></i>
+                                تحميل
+                            </button>
+                            <button onclick="restoreBackupFile('${backup.filename}')" 
+                                    class="btn-warning text-sm flex items-center gap-1">
+                                <i class="fas fa-upload"></i>
+                                استعادة
+                            </button>
+                            <button onclick="deleteBackup('${backup.filename}')" 
+                                    class="btn-danger text-sm flex items-center gap-1">
+                                <i class="fas fa-trash"></i>
+                                حذف
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            
+            backupHistory.style.display = '';
+            noBackupsMessage.classList.add('hidden');
+        } else {
+            backupHistory.style.display = 'none';
+            noBackupsMessage.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error loading backup history:', error);
+        showToast('حدث خطأ في تحميل سجل النسخ الاحتياطية', 'error');
+    }
+}
+
+async function restoreBackupFile(filename) {
+    if (!confirm(`تحذير: استعادة النسخة "${filename}" ستحذف جميع البيانات الحالية. هل تريد المتابعة؟`)) {
+        return;
+    }
+    
+    try {
+        showToast('جاري استعادة النسخة الاحتياطية...', 'info');
+        
+        const response = await fetch(`/api/backup/restore/${filename}`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('تم استعادة النسخة الاحتياطية بنجاح', 'success');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showToast(result.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error restoring backup:', error);
+        showToast('حدث خطأ في استعادة النسخة الاحتياطية', 'error');
+    }
+}
+
+// ========== نظام الاستيراد والتصدير ==========
+
+async function exportSystemData() {
+    try {
+        showToast('جاري تصدير بيانات النظام...', 'info');
+        
+        const response = await fetch('/api/system/export');
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `system_backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showToast('تم تصدير بيانات النظام بنجاح', 'success');
+        } else {
+            showToast('حدث خطأ في تصدير البيانات', 'error');
+        }
+    } catch (error) {
+        console.error('Error exporting data:', error);
+        showToast('حدث خطأ في تصدير البيانات', 'error');
+    }
+}
+
+async function importSystemData() {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    
+    fileInput.addEventListener('change', async function() {
+        if (!this.files.length) return;
+        
+        const file = this.files[0];
+        if (!confirm(`تحذير: استيراد البيانات سيحذف جميع البيانات الحالية. هل تريد المتابعة؟`)) {
+            return;
+        }
+        
+        try {
+            showToast('جاري استيراد البيانات...', 'info');
+            
+            const formData = new FormData();
+            formData.append('import_file', file);
+            
+            const response = await fetch('/api/system/import', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast('تم استيراد البيانات بنجاح', 'success');
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                showToast(result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error importing data:', error);
+            showToast('حدث خطأ في استيراد البيانات', 'error');
+        }
+    });
+    
+    fileInput.click();
+}
+
+// ========== نظام المراقبة والصحة ==========
+
+async function checkSystemHealth() {
+    try {
+        const response = await fetch('/api/system/health');
+        const result = await response.json();
+        
+        if (result.healthy) {
+            showToast('النظام يعمل بشكل صحيح', 'success');
+        } else {
+            showToast(`مشاكل في النظام: ${result.issues.join(', ')}`, 'warning');
+        }
+    } catch (error) {
+        console.error('Error checking system health:', error);
+        showToast('حدث خطأ في فحص صحة النظام', 'error');
+    }
+}
+
+async function clearSystemCache() {
+    try {
+        const response = await fetch('/api/system/clear-cache', {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('تم مسح ذاكرة التخزين المؤقت بنجاح', 'success');
+        } else {
+            showToast(result.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error clearing cache:', error);
+        showToast('حدث خطأ في مسح الذاكرة المؤقتة', 'error');
+    }
+}
+
+// ========== نظام الأمان والمراقبة ==========
+
+function monitorUserActivity() {
+    // مراقبة النشاط المشبوه
+    let inactivityTimer;
+    
+    function resetTimer() {
+        clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => {
+            showToast('تم اكتشاف عدم نشاط، سيتم تسجيل الخروج تلقائياً قريباً', 'warning');
+        }, 10 * 60 * 1000); // 10 دقائق
+    }
+    
+    // إعادة تعيين المؤقت عند أي نشاط
+    ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
+        document.addEventListener(event, resetTimer, false);
+    });
+    
+    resetTimer();
+}
+
+// بدء مراقبة النشاط
+document.addEventListener('DOMContentLoaded', monitorUserActivity);
+
+
+function initializeSettings() {
+  // ربط ألوان المنتقي مع الحقول النصية
+  const colorPicker = document.getElementById('colorPicker');
+  const colorText = document.getElementById('colorText');
+  const colorPreview = document.getElementById('colorPreview');
+  
+  if (colorPicker && colorText) {
+    colorPicker.addEventListener('input', function() {
+      colorText.value = this.value;
+      if (colorPreview) {
+        colorPreview.style.backgroundColor = this.value;
+      }
+    });
+    
+    colorText.addEventListener('input', function() {
+      if (this.value.match(/^#[0-9A-F]{6}$/i)) {
+        colorPicker.value = this.value;
+        if (colorPreview) {
+          colorPreview.style.backgroundColor = this.value;
+        }
+      }
+    });
+  }
+  
+  // تحقق من قوة كلمة المرور
+  const passwordInput = document.getElementById('userPassword');
+  if (passwordInput) {
+    passwordInput.addEventListener('input', function() {
+      const strengthContainer = this.parentNode.querySelector('.password-strength');
+      const strengthBars = strengthContainer.querySelectorAll('div > div');
+      const strengthText = document.getElementById('passwordStrengthText');
+      
+      if (this.value.length === 0) {
+        strengthContainer.classList.add('hidden');
+        return;
+      }
+      
+      strengthContainer.classList.remove('hidden');
+      
+      let strength = 0;
+      if (this.value.length >= 6) strength++;
+      if (this.value.match(/[a-z]/) && this.value.match(/[A-Z]/)) strength++;
+      if (this.value.match(/\d/) && this.value.match(/[^a-zA-Z\d]/)) strength++;
+      
+      strengthBars.forEach((bar, index) => {
+        if (index < strength) {
+          bar.className = `h-1 flex-1 rounded ${
+            strength === 1 ? 'bg-red-500' :
+            strength === 2 ? 'bg-yellow-500' :
+            'bg-green-500'
+          }`;
+        } else {
+          bar.className = 'h-1 flex-1 bg-gray-200 rounded';
+        }
+      });
+      
+      strengthText.textContent = 
+        strength === 0 ? 'ضعيفة جداً' :
+        strength === 1 ? 'ضعيفة' :
+        strength === 2 ? 'جيدة' :
+        'قوية';
+      
+      strengthText.className = `text-xs mt-1 ${
+        strength === 0 ? 'text-red-500' :
+        strength === 1 ? 'text-red-500' :
+        strength === 2 ? 'text-yellow-500' :
+        'text-green-500'
+      }`;
+    });
+  }
+}
+</script>
+
+<style>
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* تخصيصات للوضع الداكن */
+.dark .modal-content {
+  background: #1f2937;
+  color: #f9fafb;
+}
+
+.dark .table-header {
+  background: #111827;
+}
+
+.dark .card {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+.dark .form-input,
+.dark .form-select {
+  background: #374151;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+.dark .form-input:focus,
+.dark .form-select:focus {
+  border-color: #3b82f6;
+  ring-color: #3b82f6;
+}
+</style>
+{% endblock %}

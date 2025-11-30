@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- ======================= -->
+<!-- 🎯 MAIN ORDER SYSTEM - MODULAR -->
+<!-- ======================= -->
+
+<!-- Header Section -->
+{% include "orders/orders_header.html" %}
+
+<!-- Statistics Cards -->
+{% include "orders/orders_stats.html" %}
+
+<!-- Costs Summary -->
+{% include "orders/orders_costs.html" %}
+
+<!-- Orders Table -->
+{% include "orders/orders_table.html" %}
+
+<!-- All Modals -->
+{% include "orders/orders_modals.html" %}
+
+<!-- JavaScript -->
+{% include "orders/orders_scripts.html" %}
+
+<!-- Styles -->
+{% include "orders/orders_styles.html" %}
+
+{% endblock %}

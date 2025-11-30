@@ -1,0 +1,1197 @@
+<!-- templates/orders/orders_modals.html -->
+
+<!-- ======================= -->
+<!-- 🎫 MODALS SECTION -->
+<!-- ======================= -->
+
+<!-- Order Add/Edit Modal -->
+<div id="orderModal" class="modal" role="dialog" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal-content modern-modal">
+    <div class="modal-header">
+      <h3 id="modalTitle" class="text-lg md:text-xl font-bold text-gray-900">➕ إضافة طلبية جديدة</h3>
+      <button type="button" onclick="hideModal('orderModal')" class="modal-close-btn" aria-label="إغلاق">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <form id="orderForm" method="POST" class="modal-body">
+      <input type="hidden" name="id" id="order_id">
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+        <div class="form-group">
+          <label for="order_name" class="form-label">الاسم *</label>
+          <input name="name" id="order_name" required class="form-input" placeholder="اسم العميل">
+        </div>
+        <div class="form-group">
+          <label for="order_phone" class="form-label">رقم الهاتف *</label>
+          <input type="tel" name="phones" id="order_phone" required class="form-input" placeholder="+213 XXX XX XX XX">
+        </div>
+        <div class="form-group">
+          <label for="order_wilaya" class="form-label">الولاية *</label>
+          <input name="wilaya" id="order_wilaya" required class="form-input" placeholder="اسم الولاية">
+        </div>
+        <div class="form-group">
+          <label for="order_product" class="form-label">المنتج *</label>
+          <input name="product" id="order_product" required class="form-input" placeholder="اسم المنتج">
+        </div>
+        <div class="form-group">
+          <label for="order_paid" class="form-label">المدفوع *</label>
+          <input name="paid" id="order_paid" type="number" step="0.01" required class="form-input" value="0" min="0">
+        </div>
+        <div class="form-group">
+          <label for="order_total" class="form-label">الإجمالي *</label>
+          <input name="total" id="order_total" type="number" step="0.01" required class="form-input" value="0" min="1">
+        </div>
+        <div class="form-group">
+          <label for="expected_cost" class="form-label">التكلفة المتوقعة</label>
+          <input name="expected_cost" id="expected_cost" type="number" step="0.01" class="form-input" placeholder="سيتم احتسابها تلقائياً">
+        </div>
+        <div class="form-group">
+          <label for="estimated_days" class="form-label">الأيام المتوقعة</label>
+          <input name="estimated_days" id="estimated_days" type="number" class="form-input" placeholder="عدد أيام التنفيذ المتوقعة">
+        </div>
+        <div class="md:col-span-2 form-group">
+          <label for="order_note" class="form-label">الملاحظات</label>
+          <textarea name="note" id="order_note" rows="3" class="form-textarea" placeholder="ملاحظات إضافية حول الطلبية..."></textarea>
+        </div>
+        <div class="md:col-span-2 form-group">
+          <label for="order_status" class="form-label">الحالة</label>
+          <div class="flex gap-2">
+            <select name="status" id="order_status" class="form-select flex-1">
+              <option value="">-- اختر الحالة --</option>
+              {% for s in statuses %}
+              <option value="{{ s.id }}">{{ s.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" onclick="showAddStatusModal()" class="form-action-btn min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="إضافة حالة جديدة">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" onclick="hideModal('orderModal')" class="btn-secondary min-h-[44px]">إلغاء</button>
+        <button type="submit" class="btn-primary min-h-[44px]">حفظ الطلبية</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ======================= -->
+<!-- 📊 COSTS REPORT MODAL  -->
+<!-- ======================= -->
+<div id="costsReportModal" class="modal">
+    <div class="modal-content modern-modal xlarge">
+        <div class="modal-header">
+            <div>
+                <h3 class="text-lg md:text-xl font-bold text-white">📊 تقرير التكاليف التفصيلي</h3>
+                <p class="text-sm text-purple-100 mt-1 hidden md:block">تحليل التكاليف حسب التصنيفات والمستخدمين</p>
+            </div>
+            <button type="button" onclick="hideModal('costsReportModal')" class="modal-close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="modal-body">
+            <!-- 🔍 فلاتر التقرير -->
+            <div class="filters-section mb-4 md:mb-6">
+                <div class="section-header">
+                    <h4 class="section-title">
+                        <i class="fas fa-filter"></i>
+                        🔍 تصفية التقرير
+                    </h4>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 p-3 md:p-4 bg-gray-50 rounded-lg">
+                    <!-- فلتر المستخدم -->
+                    <div class="form-group">
+                        <label for="costReportUserFilter" class="form-label">المستخدم</label>
+                        <select id="costReportUserFilter" class="form-select" onchange="loadCostsReport()">
+                            <option value="">جميع المستخدمين</option>
+                            {% for user in users %}
+                            <option value="{{ user.username }}">{{ user.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- فلتر التاريخ من -->
+                    <div class="form-group">
+                        <label for="costReportDateFrom" class="form-label">من تاريخ</label>
+                        <input type="date" id="costReportDateFrom" class="form-input" onchange="loadCostsReport()">
+                    </div>
+                    
+                    <!-- فلتر التاريخ إلى -->
+                    <div class="form-group">
+                        <label for="costReportDateTo" class="form-label">إلى تاريخ</label>
+                        <input type="date" id="costReportDateTo" class="form-input" onchange="loadCostsReport()">
+                    </div>
+                </div>
+                
+                <!-- زر إعادة التعيين -->
+                <div class="text-center mt-3 md:mt-4">
+                    <button type="button" onclick="resetCostsReportFilters()" class="btn-outline min-h-[44px]">
+                        <i class="fas fa-refresh ml-2"></i>
+                        إعادة التعيين
+                    </button>
+                </div>
+            </div>
+
+            <!-- 📊 بطاقات التصنيفات -->
+            <div class="section-header mb-3 md:mb-4">
+                <h4 class="section-title">
+                    <i class="fas fa-chart-pie"></i>
+                    📈 التكاليف حسب التصنيفات
+                </h4>
+                <span class="history-stats text-sm" id="costsReportStats">0 تصنيف</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6" id="costsCategoriesGrid">
+                <!-- سيتم ملؤه بالجافاسكريبت -->
+                <div class="empty-state">
+                    <i class="fas fa-chart-bar"></i>
+                    <p>جاري تحميل البيانات...</p>
+                </div>
+            </div>
+
+            <!-- 📋 جدول التفاصيل -->
+            <div class="section-header mb-3 md:mb-4">
+                <h4 class="section-title">
+                    <i class="fas fa-table"></i>
+                    📋 التفاصيل الكاملة
+                </h4>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="table-header">
+                        <tr>
+                            <th class="p-2 md:p-3 text-xs md:text-sm">التصنيف</th>
+                            <th class="p-2 md:p-3 text-xs md:text-sm">المستخدم</th>
+                            <th class="p-2 md:p-3 text-xs md:text-sm">عدد العمليات</th>
+                            <th class="p-2 md:p-3 text-xs md:text-sm">إجمالي التكلفة</th>
+                            <th class="p-2 md:p-3 text-xs md:text-sm">النسبة</th>
+                            <th class="p-2 md:p-3 text-xs md:text-sm">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="costsDetailsTable">
+                        <!-- سيتم ملؤه بالجافاسكريبت -->
+                        <tr>
+                            <td colspan="6" class="p-4 md:p-6 text-center text-gray-500">
+                                <i class="fas fa-chart-bar text-2xl md:text-4xl mb-2 md:mb-3 text-gray-300"></i>
+                                <p class="text-sm">جاري تحميل البيانات...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="modal-actions">
+            <button type="button" onclick="hideModal('costsReportModal')" class="btn-secondary min-h-[44px]">
+                إغلاق
+            </button>
+            <button type="button" onclick="exportCostsReport()" class="btn-primary min-h-[44px]">
+                <i class="fas fa-download ml-2"></i>
+                تصدير التقرير
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ======================= -->
+<!-- 💰 ORDERS DEBTS MODAL  -->
+<!-- ======================= -->
+<div id="ordersDebtsModal" class="modal">
+  <div class="modal-content modern-modal xlarge">
+    <div class="modal-header">
+      <div>
+        <h3 class="text-lg md:text-xl font-bold text-white">📋 الطلبيات المتأثرة بالديون</h3>
+        <p class="text-sm text-purple-100 mt-1" id="ordersDebtsSummary">0 طلبية بإجمالي 0 دج ديون</p>
+      </div>
+      <button type="button" onclick="hideModal('ordersDebtsModal')" class="modal-close-btn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
+        <div class="stat-card bg-red-500 text-white">
+          <div class="stat-label text-xs">إجمالي الديون</div>
+          <div class="stat-value text-lg md:text-xl" id="modalTotalDebts">0 دج</div>
+        </div>
+        <div class="stat-card bg-orange-500 text-white">
+          <div class="stat-label text-xs">الطلبيات المتأثرة</div>
+          <div class="stat-value text-lg md:text-xl" id="modalAffectedOrders">0</div>
+        </div>
+        <div class="stat-card bg-yellow-500 text-white">
+          <div class="stat-label text-xs">متوسط الدين</div>
+          <div class="stat-value text-lg md:text-xl" id="modalAverageDebt">0 دج</div>
+        </div>
+        <div class="stat-card bg-green-500 text-white">
+          <div class="stat-label text-xs">طلبيات بدون ديون</div>
+          <div class="stat-value text-lg md:text-xl" id="modalDebtFreeOrders">0</div>
+        </div>
+      </div>
+
+      <!-- جدول الطلبيات -->
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="table-header">
+            <tr>
+              <th class="p-2 md:p-3 text-xs md:text-sm"># الطلبية</th>
+              <th class="p-2 md:p-3 text-xs md:text-sm">العميل</th>
+              <th class="p-2 md:p-3 text-xs md:text-sm">إجمالي الطلبية</th>
+              <th class="p-2 md:p-3 text-xs md:text-sm">مبلغ الدين</th>
+              <th class="p-2 md:p-3 text-xs md:text-sm">نسبة الدين</th>
+              <th class="p-2 md:p-3 text-xs md:text-sm">الحالة</th>
+              <th class="p-2 md:p-3 text-xs md:text-sm">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="ordersDebtsList">
+            <!-- سيتم ملؤه بالجافاسكريبت -->
+            <tr>
+              <td colspan="7" class="p-4 md:p-6 text-center text-gray-500">
+                <i class="fas fa-check-circle text-2xl md:text-4xl mb-2 md:mb-3 text-green-300"></i>
+                <p class="text-sm">لا توجد طلبيات بها ديون</p>
+                <p class="text-xs text-gray-400 mt-1">جميع الطلبيات سليمة مالياً</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <div class="modal-actions">
+      <button type="button" onclick="hideModal('ordersDebtsModal')" class="btn-secondary min-h-[44px]">
+        إغلاق
+      </button>
+      <button type="button" onclick="exportDebtsReport()" class="btn-primary min-h-[44px]">
+        <i class="fas fa-download ml-2"></i>
+        تصدير التقرير
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile Phone Options Modal -->
+<div id="mobilePhoneModal" class="modal" role="dialog" aria-hidden="true">
+  <div class="modal-content modern-modal compact">
+    <div class="modal-header">
+      <h3 class="text-base md:text-lg font-bold text-gray-900">خيارات الهاتف</h3>
+      <button type="button" onclick="hideModal('mobilePhoneModal')" class="modal-close-btn" aria-label="إغلاق">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="flex justify-center gap-4 md:gap-6 py-4">
+        <a id="mobileCallBtn" href="#" class="action-btn success large min-h-[60px] min-w-[60px] flex items-center justify-center text-xl" aria-label="اتصال">
+          <i class="fas fa-phone"></i>
+        </a>
+        <a id="mobileWhatsappBtn" href="#" target="_blank" class="action-btn whatsapp large min-h-[60px] min-w-[60px] flex items-center justify-center text-xl" aria-label="واتساب">
+          <i class="fab fa-whatsapp"></i>
+        </a>
+        <button id="mobileCopyBtn" class="action-btn primary large min-h-[60px] min-w-[60px] flex items-center justify-center text-xl" aria-label="نسخ الرقم">
+          <i class="fas fa-copy"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Order Details Modal -->
+<div id="detailsModal" class="modal" role="dialog" aria-labelledby="detailsOrderId" aria-hidden="true">
+  <div class="modal-content modern-modal large">
+    <div class="modal-header">
+      <div>
+        <h3 class="text-lg md:text-xl font-bold text-gray-900">📋 تفاصيل الطلبية #<span id="detailsOrderId"></span></h3>
+        <p class="text-sm text-gray-500 mt-1" id="detailsCustomerName"></p>
+      </div>
+      <button type="button" onclick="hideModal('detailsModal')" class="modal-close-btn" aria-label="إغلاق">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        <!-- Worker Assignment Section -->
+        <div class="space-y-4 md:space-y-6">
+          <div class="feature-section blue">
+            <h4 class="section-title">
+              <i class="fas fa-users"></i>
+              👥 إدارة تعيين العمال
+            </h4>
+            
+            <!-- Current Assignments -->
+            <div class="mb-4 md:mb-6">
+              <h5 class="section-subtitle">التعيينات النشطة:</h5>
+              <div id="currentAssignments" class="space-y-2 md:space-y-3">
+                <div class="empty-state">
+                  <i class="fas fa-user-clock"></i>
+                  <p>لا توجد تعيينات حالية</p>
+                  <p class="text-xs">استخدم النموذج أدناه لإضافة تعيين جديد</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- New Assignment Form -->
+            <div class="form-container">
+              <h5 class="section-subtitle">إضافة تعيين جديد:</h5>
+              <form id="assignWorkerForm" class="space-y-3 md:space-y-4">
+                <input type="hidden" id="assign_order_id">
+                
+                <div class="form-group">
+                  <label for="assign_worker_id" class="form-label">اختر العامل</label>
+                  <select id="assign_worker_id" class="form-select" required>
+                    <option value="">-- اختر العامل --</option>
+                    {% for worker in workers %}
+                      <option value="{{ worker.id }}">{{ worker.name }} - {{ worker.phone }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label for="assign_type" class="form-label">نوع المهمة</label>
+                  <select id="assign_type" class="form-select" required>
+                    <option value="workshop">عمل داخل الورشة</option>
+                    <option value="travel">سفر وتركيب</option>
+                    <option value="installation">تركيب فقط</option>
+                    <option value="maintenance">صيانة وإصلاح</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label for="assign_notes" class="form-label">ملاحظات التعيين</label>
+                  <textarea id="assign_notes" rows="3" class="form-textarea" placeholder="أضف تفاصيل عن المهمة..."></textarea>
+                </div>
+                
+                <button type="submit" class="btn-success w-full min-h-[44px]">
+                  <i class="fas fa-user-plus ml-2"></i>
+                  تعيين العامل
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Additional Details Section -->
+        <div class="space-y-4 md:space-y-6">
+          <div class="feature-section purple">
+            <h4 class="section-title">
+              <i class="fas fa-clipboard-list"></i>
+              📝 التفاصيل الإضافية
+            </h4>
+            
+            <div class="space-y-3 md:space-y-4">
+              <div class="form-group">
+                <label for="production_details" class="form-label">تفاصيل الإنتاج</label>
+                <textarea id="production_details" rows="4" class="form-textarea" placeholder="أضف تفاصيل عن سير العمل، المواد المستخدمة، الملاحظات الفنية..."></textarea>
+              </div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                <div class="form-group">
+                  <label for="start_date" class="form-label">تاريخ البدء</label>
+                  <input type="date" id="start_date" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label for="expected_delivery" class="form-label">تاريخ التسليم المتوقع</label>
+                  <input type="date" id="expected_delivery" class="form-input">
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="actual_delivery" class="form-label">تاريخ التسليم الفعلي</label>
+                <input type="date" id="actual_delivery" class="form-input">
+              </div>
+            </div>
+          </div>
+          
+          <!-- Quick Attachments Access -->
+          <div class="feature-section orange">
+            <h4 class="section-title">
+              <i class="fas fa-paperclip"></i>
+              📎 الوصول السريع للمرفقات
+            </h4>
+            <div class="text-center">
+              <button onclick="showAttachments(currentOrderId)" class="btn-warning w-full min-h-[44px]">
+                <i class="fas fa-external-link-alt ml-2"></i>
+                فتح نافذة المرفقات
+              </button>
+              <p class="text-xs text-gray-500 mt-2">إدارة كاملة لجميع المرفقات والصور</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Performance Evaluation Section -->
+        <div class="space-y-4 md:space-y-6">
+          <div class="feature-section green">
+            <h4 class="section-title">
+              <i class="fas fa-chart-line"></i>
+              ⭐ تقييم أداء الطلبية
+            </h4>
+            
+            <div class="space-y-3 md:space-y-4">
+              <!-- Auto Performance Evaluation -->
+              <div class="form-group">
+                <label class="form-label">📊 التقييم التلقائي</label>
+                <div class="bg-white p-3 md:p-4 rounded-lg border border-gray-200">
+                  <div class="grid grid-cols-2 gap-3 md:gap-4 mb-3 md:mb-4">
+                    <div class="text-center">
+                      <div class="text-xl md:text-2xl font-bold text-blue-600" id="autoTimeScore">0%</div>
+                      <div class="text-xs text-gray-600">الالتزام بالوقت</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="text-xl md:text-2xl font-bold text-green-600" id="autoCostScore">0%</div>
+                      <div class="text-xs text-gray-600">الالتزام بالميزانية</div>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-3 md:gap-4">
+                    <div class="text-center">
+                      <div class="text-xl md:text-2xl font-bold text-purple-600" id="autoQualityScore">0%</div>
+                      <div class="text-xs text-gray-600">جودة العمل</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="text-xl md:text-2xl font-bold text-orange-600" id="autoWorkerScore">0%</div>
+                      <div class="text-xs text-gray-600">أداء العمال</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Performance Insights -->
+              <div class="form-group">
+                <label class="form-label">💡 تحليل الأداء</label>
+                <div id="performanceInsights" class="space-y-2 text-sm">
+                  <div class="empty-state">
+                    <i class="fas fa-chart-bar"></i>
+                    <p>جاري تحليل أداء الطلبية...</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Post-Installation Issues -->
+              <div class="form-group">
+                <label class="form-label">⚠️ مشاكل ما بعد التركيب</label>
+                <div class="space-y-2 md:space-y-3">
+                  <div id="postInstallationIssues">
+                    <div class="empty-state">
+                      <i class="fas fa-tools"></i>
+                      <p>لا توجد مشاكل مسجلة</p>
+                    </div>
+                  </div>
+                  <button type="button" onclick="showIssueReportModal()" class="btn-warning w-full min-h-[44px]">
+                    <i class="fas fa-exclamation-triangle ml-2"></i>
+                    تسجيل مشكلة جديدة
+                  </button>
+                </div>
+              </div>
+
+              <!-- Root Cause Analysis -->
+              <div class="form-group">
+                <label class="form-label">🔍 تحليل الأسباب الجذرية</label>
+                <div id="rootCauseAnalysis" class="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                  <p class="text-sm text-yellow-800 text-center">سيظهر تحليل الأسباب هنا عند تسجيل المشاكل</p>
+                </div>
+              </div>
+
+              <!-- Overall Score -->
+              <div class="bg-gray-50 p-3 md:p-4 rounded-lg">
+                <div class="flex justify-between items-center">
+                  <span class="font-semibold text-sm md:text-base">التقييم النهائي:</span>
+                  <span id="overall_score" class="text-xl md:text-2xl font-bold text-green-600">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                  <div id="score_progress" class="h-2 rounded-full bg-green-500 transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div class="text-xs text-gray-500 mt-2 text-center" id="performanceSummary">جاري التقييم...</div>
+              </div>
+
+              <button type="button" onclick="refreshAutoEvaluation()" class="btn-success w-full min-h-[44px]">
+                <i class="fas fa-sync-alt ml-2"></i>
+                تحديث التقييم التلقائي
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-actions">
+      <button type="button" onclick="hideModal('detailsModal')" class="btn-secondary min-h-[44px]">
+        <i class="fas fa-times ml-2"></i>
+        إغلاق
+      </button>
+      <button type="button" onclick="saveOrderDetails()" class="btn-primary min-h-[44px]">
+        <i class="fas fa-save ml-2"></i>
+        حفظ جميع التغييرات
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Issue Report Modal -->
+<div id="issueReportModal" class="modal" role="dialog" aria-hidden="true">
+  <div class="modal-content modern-modal">
+    <div class="modal-header">
+      <h3 class="text-lg md:text-xl font-bold text-gray-900">⚠️ تسجيل مشكلة بعد التركيب</h3>
+      <button type="button" onclick="hideModal('issueReportModal')" class="modal-close-btn" aria-label="إغلاق">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <form id="issueReportForm" class="modal-body">
+      <input type="hidden" id="issue_order_id">
+      
+      <div class="space-y-3 md:space-y-4">
+        <div class="form-group">
+          <label for="issue_type" class="form-label">نوع المشكلة *</label>
+          <select id="issue_type" class="form-select" required>
+            <option value="">-- اختر نوع المشكلة --</option>
+            <option value="welding_issue">مشكلة في اللحام</option>
+            <option value="material_issue">مشكلة في المواد</option>
+            <option value="design_issue">مشكلة في التصميم</option>
+            <option value="installation_issue">مشكلة في التركيب</option>
+            <option value="finishing_issue">مشكلة في التشطيب</option>
+            <option value="transport_issue">مشكلة في النقل</option>
+            <option value="other">أخرى</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="issue_severity" class="form-label">شدة المشكلة *</label>
+          <select id="issue_severity" class="form-select" required>
+            <option value="low">منخفضة</option>
+            <option value="medium">متوسطة</option>
+            <option value="high">عالية</option>
+            <option value="critical">حرجة</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="issue_description" class="form-label">وصف المشكلة *</label>
+          <textarea id="issue_description" rows="4" class="form-textarea" placeholder="صف المشكلة بالتفصيل..." required></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="issue_cause" class="form-label">السبب المحتمل</label>
+          <textarea id="issue_cause" rows="3" class="form-textarea" placeholder="ما هو السبب المحتمل للمشكلة؟"></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="issue_solution" class="form-label">الحل المقترح</label>
+          <textarea id="issue_solution" rows="3" class="form-textarea" placeholder="ما هو الحل المقترح؟"></textarea>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <div class="form-group">
+            <label for="issue_date" class="form-label">تاريخ اكتشاف المشكلة</label>
+            <input type="date" id="issue_date" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label for="estimated_repair_time" class="form-label">الوقت المتوقع للإصلاح (أيام)</label>
+            <input type="number" id="estimated_repair_time" class="form-input" min="1" value="1">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">هل تم إصلاح المشكلة؟</label>
+          <div class="flex gap-3 md:gap-4">
+            <label class="flex items-center">
+              <input type="radio" name="issue_resolved" value="yes" class="mr-2">
+              <span>نعم</span>
+            </label>
+            <label class="flex items-center">
+              <input type="radio" name="issue_resolved" value="no" checked class="mr-2">
+              <span>لا</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-actions">
+        <button type="button" onclick="hideModal('issueReportModal')" class="btn-secondary min-h-[44px]">إلغاء</button>
+        <button type="submit" class="btn-primary min-h-[44px]">حفظ المشكلة</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Order History Modal -->
+<div id="historyModal" class="modal" role="dialog" aria-labelledby="historyOrderId" aria-hidden="true">
+  <div class="modal-content modern-modal xlarge">
+    <div class="modal-header">
+      <div>
+        <h3 class="text-lg md:text-xl font-bold text-gray-900">📋 السجل الكامل للطلبية #<span id="historyOrderId"></span></h3>
+        <p class="text-sm text-gray-500 mt-1" id="historyOrderInfo"></p>
+      </div>
+      <button type="button" onclick="hideModal('historyModal')" class="modal-close-btn" aria-label="إغلاق">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="grid grid-cols-2 md:grid-cols-7 gap-2 md:gap-3 mb-4 md:mb-6">
+        <!-- Total -->
+        <div class="stat-card purple">
+            <div class="stat-label text-xs">الإجمالي</div>
+            <div class="stat-value text-sm md:text-base" id="historyTotalAmount">0 دج</div>
+        </div>
+        
+        <!-- Paid -->
+        <div class="stat-card green">
+            <div class="stat-label text-xs">المدفوع</div>
+            <div class="stat-value text-sm md:text-base" id="historyPaidAmount">0 دج</div>
+        </div>
+        
+        <!-- Remaining -->
+        <div class="stat-card orange">
+            <div class="stat-label text-xs">المتبقي</div>
+            <div class="stat-value text-sm md:text-base" id="historyRemainingAmount">0 دج</div>
+        </div>
+        
+        <!-- Cost -->
+        <div class="stat-card red">
+            <div class="stat-label text-xs">التكلفة</div>
+            <div class="stat-value text-sm md:text-base" id="historyCostAmount">0 دج</div>
+        </div>
+        
+        <!-- Debt Card -->
+        <div class="stat-card bg-gradient-to-r from-red-500 to-pink-600 text-white cursor-pointer"
+             onclick="showDebtDetails(currentOrderId)"
+             id="orderDebtCard">
+          <div class="stat-label text-xs">
+            ديون الطلبية 
+            <i class="fas fa-sync-alt ml-1 text-xs" id="debtRefreshIcon"></i>
+          </div>
+          <div class="stat-value text-sm md:text-base" id="historyOrderDebt">0 دج</div>
+          <div class="text-xs opacity-80 mt-1" id="debtStatusText">جاري التحديث...</div>
+        </div>
+
+        <!-- Profit -->
+        <div class="stat-card green">
+            <div class="stat-label text-xs">الربح</div>
+            <div class="stat-value text-sm md:text-base" id="historyProfitAmount">0 دج</div>
+        </div>
+        
+        <!-- Profit Percentage -->
+        <div class="stat-card blue">
+            <div class="stat-label text-xs">نسبة الربح</div>
+            <div class="stat-value text-sm md:text-base" id="historyProfitPercentage">0%</div>
+        </div>
+      </div>
+
+      <!-- Visual Progress Bar -->
+      <div class="progress-section">
+          <div class="progress-labels text-xs">
+              <span>التكلفة</span>
+              <span>الإجمالي</span>
+              <span>الربح</span>
+          </div>
+          <div class="progress-bar-container">
+              <div class="absolute left-0 top-0 h-3 md:h-4 bg-red-500 rounded-l-full" id="costBar"></div>
+              <div class="absolute left-0 top-0 h-3 md:h-4 bg-green-500" id="profitBar"></div>
+          </div>
+          <div class="progress-percentages text-xs">
+              <span id="costPercentage">0%</span>
+              <span id="profitPercentage">0%</span>
+          </div>
+      </div>
+      
+      <!-- 🔍 حقول التصفية -->
+      <div class="filters-section mb-4 md:mb-6">
+        <div class="section-header">
+            <h4 class="section-title">
+                <i class="fas fa-filter"></i>
+                🔍 تصفية السجل
+            </h4>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 p-3 md:p-4 bg-gray-50 rounded-lg">
+            <!-- فلتر حسب المستخدم -->
+            <div class="form-group">
+                <label for="historyUserFilter" class="form-label">المستخدم</label>
+                <select id="historyUserFilter" class="form-select" onchange="applyHistoryFilters()">
+                    <option value="">جميع المستخدمين</option>
+                    {% for user in all_users %}
+                    <option value="{{ user.username }}">{{ user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- فلتر نوع العملية -->
+            <div class="form-group">
+                <label for="historyTypeFilter" class="form-label">نوع العملية</label>
+                <select id="historyTypeFilter" class="form-select" onchange="applySmartHistoryFilters()">
+                    <option value="">جميع العمليات</option>
+                    <option value="دفعة">دفعات مالية</option>
+                    <option value="مصروف">مصاريف</option>
+                    <option value="نقل">تكاليف نقل</option>
+                    <option value="ديون">الديون</option>
+                    <option value="تعيين">تعيينات عمال</option>
+                    <option value="تعديل">تعديلات</option>
+                    <option value="إنشاء">إنشاء طلبيات</option>
+                    <option value="حذف">عمليات حذف</option>
+                    <option value="تقييم">تقييمات أداء</option>
+                    <option value="مشكلة">مشاكل ما بعد التركيب</option>
+                    <option value="أخرى">عمليات أخرى</option>
+                </select>
+            </div>
+            
+            <!-- زر إعادة التعيين -->
+            <div class="form-group flex items-end">
+                <button type="button" onclick="resetHistoryFilters()" class="btn-outline w-full min-h-[44px]">
+                    <i class="fas fa-refresh ml-2"></i>
+                    إعادة التعيين
+                </button>
+            </div>
+        </div>
+      </div>
+
+      <!-- السجل الموحد -->
+      <div class="history-section">
+        <div class="section-header">
+          <h4 class="section-title">
+            <i class="fas fa-stream"></i>
+            السجل الزمني الموحد
+          </h4>
+          <span class="history-stats text-sm" id="historyStats">0 عملية</span>
+        </div>
+        <div id="unifiedHistoryContent" class="history-content">
+          <div class="empty-state">
+            <i class="fas fa-history"></i>
+            <p>جاري تحميل السجل...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-actions">
+      <button type="button" onclick="hideModal('historyModal')" class="btn-secondary min-h-[44px]">
+        إغلاق السجل
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div id="paymentModal" class="modal" role="dialog" aria-labelledby="paymentTitle" aria-hidden="true">
+  <div class="modal-content modern-modal compact">
+    <form id="paymentForm" method="POST" class="modal-body">
+      <div class="modal-header">
+        <h3 class="text-base md:text-lg font-bold text-gray-900">💰 إضافة دفعة</h3>
+        <button type="button" onclick="hideModal('paymentModal')" class="modal-close-btn" aria-label="إغلاق">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <input type="hidden" name="order_id" id="payment_order_id">
+      
+      <div class="info-banner blue">
+        <p class="text-sm">المبلغ المتبقي: <span id="remainingAmount" class="font-bold">0</span> دج</p>
+      </div>
+
+      <div class="form-group">
+        <label for="payment_amount" class="form-label">مبلغ الدفعة *</label>
+        <input type="number" name="amount" id="payment_amount" step="0.01" required 
+               class="form-input"
+               placeholder="أدخل مبلغ الدفعة">
+      </div>
+
+      <div class="form-group">
+        <label for="payment_date" class="form-label">تاريخ الدفعة</label>
+        <input type="date" name="payment_date" id="payment_date" required 
+               class="form-input"
+               value="{{ now.strftime('%Y-%m-%d') if now else '' }}">
+      </div>
+
+      <div class="form-group">
+        <label for="payment_method" class="form-label">طريقة الدفع</label>
+        <select name="payment_method" id="payment_method" class="form-select">
+            <option value="نقدي">نقدي</option>
+            <option value="تحويل بنكي">تحويل بنكي</option>
+            <option value="شيك">شيك</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="payment_notes" class="form-label">ملاحظات</label>
+        <textarea name="notes" id="payment_notes" rows="2" class="form-textarea" placeholder="ملاحظات حول الدفعة..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" onclick="hideModal('paymentModal')" class="btn-secondary min-h-[44px]">إلغاء</button>
+        <button type="submit" class="btn-success min-h-[44px]">إضافة الدفعة</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 🔧 التصميم المحسن لنافذة المرفقات -->
+<!-- 🔧 نافذة المرفقات المحسنة -->
+<div id="attachmentsModal" class="modal hidden">
+    <div class="modal-content modern-modal xlarge attachments-modal-enhanced">
+        <div class="modal-header">
+            <h3 class="text-lg md:text-xl font-bold text-gray-900">
+                <i class="fas fa-paperclip ml-2"></i>
+                المرفقات - الطلبية #<span id="attachmentsOrderId">0</span>
+            </h3>
+            <button type="button" onclick="hideModal('attachmentsModal')" class="modal-close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="modal-body">
+            <!-- ✅ قسم البحث والتحكم -->
+            <div class="control-section mb-4 md:mb-6">
+                <div class="flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-start md:items-center">
+                    <!-- البحث -->
+                    <div class="flex-1 w-full md:w-auto">
+                        <div class="relative">
+                            <input type="text" 
+                                   id="attachmentsSearch" 
+                                   class="search-input-professional w-full"
+                                   placeholder="🔍 ابحث في المرفقات...">
+                            <div class="absolute left-3 top-1/2 transform -translate-y-1/2">
+                                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full" 
+                                      id="attachmentsCount">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- أزرار التحكم -->
+                    <div class="flex gap-2 w-full md:w-auto mt-3 md:mt-0">
+                        <button onclick="clearUploadSelection()" class="btn-secondary flex items-center gap-2 min-h-[44px] flex-1 md:flex-none">
+                            <i class="fas fa-times"></i>
+                            <span class="hidden md:inline">إلغاء الرفع</span>
+                            <span class="md:hidden">إلغاء</span>
+                        </button>
+                        <button onclick="uploadSelectedFiles()" class="btn-primary flex items-center gap-2 min-h-[44px] flex-1 md:flex-none">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span class="hidden md:inline">رفع الملفات</span>
+                            <span class="md:hidden">رفع</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ✅ قسم الرفع - تصميم مدمج ومحسّن -->
+            <div class="upload-section-enhanced mb-4 md:mb-6">
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-dashed border-blue-300 rounded-2xl p-4 md:p-6 transition-all duration-300 hover:border-blue-400 hover:from-blue-100 hover:to-indigo-100">
+                    <div class="flex flex-col lg:flex-row gap-4 md:gap-6 items-center">
+                        <!-- اختيار الملفات - تصميم محسّن -->
+                        <div class="flex-1 text-center lg:text-right">
+                            <label class="upload-area-enhanced cursor-pointer block">
+                                <input type="file" 
+                                       id="newFileInput" 
+                                       multiple 
+                                       class="hidden" 
+                                       onchange="handleFileSelection(event)">
+                                <div class="upload-content-enhanced py-6 md:py-8">
+                                    <div class="upload-icon-enhanced mb-3 md:mb-4">
+                                        <i class="fas fa-cloud-upload-alt text-4xl md:text-5xl text-blue-500 mb-2 md:mb-3"></i>
+                                    </div>
+                                    <div class="upload-text-enhanced">
+                                        <h4 class="text-lg md:text-xl font-bold text-gray-800 mb-2">رفع الملفات</h4>
+                                        <p class="text-gray-600 mb-2 md:mb-3 text-sm md:text-base">اسحب الملفات هنا أو انقر للاختيار</p>
+                                        <div class="upload-features grid grid-cols-1 md:grid-cols-3 gap-2 text-xs md:text-sm text-gray-500">
+                                            <div class="feature-item flex items-center justify-center gap-1">
+                                                <i class="fas fa-image text-green-500"></i>
+                                                <span>الصور</span>
+                                            </div>
+                                            <div class="feature-item flex items-center justify-center gap-1">
+                                                <i class="fas fa-video text-purple-500"></i>
+                                                <span>الفيديوهات</span>
+                                            </div>
+                                            <div class="feature-item flex items-center justify-center gap-1">
+                                                <i class="fas fa-file-pdf text-red-500"></i>
+                                                <span>PDF</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <!-- معلومات الرفع - تصميم جانبي -->
+                        <div class="upload-info-enhanced bg-white rounded-xl p-3 md:p-4 border border-blue-200 shadow-sm w-full lg:w-auto">
+                            <h5 class="font-semibold text-gray-800 mb-2 md:mb-3 flex items-center gap-2">
+                                <i class="fas fa-info-circle text-blue-500"></i>
+                                معلومات الرفع
+                            </h5>
+                            <div class="space-y-2 text-xs md:text-sm">
+                                <div class="info-item flex items-center gap-2 text-gray-600">
+                                    <i class="fas fa-check-circle text-green-500"></i>
+                                    <span>الحد الأقصى للملف: <strong>10MB</strong></span>
+                                </div>
+                                <div class="info-item flex items-center gap-2 text-gray-600">
+                                    <i class="fas fa-check-circle text-green-500"></i>
+                                    <span>إجمالي الحد: <strong>40MB</strong></span>
+                                </div>
+                                <div class="info-item flex items-center gap-2 text-gray-600">
+                                    <i class="fas fa-check-circle text-green-500"></i>
+                                    <span>الصيغ المدعومة: <strong>PNG, JPG, MP4, PDF</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ✅ معاينة الملفات المختارة - تصميم محسّن -->
+                    <div id="uploadPreview" class="hidden mt-4 md:mt-6">
+                        <div class="preview-header-enhanced flex items-center justify-between mb-3 md:mb-4 p-3 bg-white rounded-lg border border-blue-200">
+                            <div class="flex items-center gap-2 md:gap-3">
+                                <i class="fas fa-images text-blue-500 text-lg md:text-xl"></i>
+                                <div>
+                                    <h5 class="font-semibold text-gray-800 text-sm md:text-base">الملفات المختارة</h5>
+                                    <p class="text-xs text-gray-600" id="filesCount">0 ملف</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-500">الحجم الإجمالي:</span>
+                                <span class="font-semibold text-blue-600 text-sm" id="totalSize">0 MB</span>
+                            </div>
+                        </div>
+                        
+                        <!-- ✅ حقل التسمية - يظهر فقط عند اختيار الملفات -->
+                        <div id="attachmentLabelSection" class="hidden mb-3 md:mb-4">
+                            <div class="form-group">
+                                <label for="attachmentLabel" class="form-label flex items-center gap-2">
+                                    <i class="fas fa-tag text-blue-500"></i>
+                                    تسمية موحدة للملفات
+                                </label>
+                                <input type="text" 
+                                       id="attachmentLabel" 
+                                       class="form-input" 
+                                       placeholder="أدخل تسمية موحدة لجميع الملفات المرفوعة...">
+                                <div class="text-xs text-gray-500 mt-1 flex justify-between">
+                                    <span>سيتم تطبيق هذه التسمية على جميع الملفات</span>
+                                    <span id="labelCounter">0/50</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="previewContainer" class="preview-grid-enhanced"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ✅ قسم المرفقات الحالية -->
+            <div class="current-attachments-section">
+                <div class="section-header mb-3 md:mb-4">
+                    <h4 class="section-title">
+                        <i class="fas fa-folder-open ml-2"></i>
+                        المرفقات الحالية
+                        <span class="bg-blue-100 text-blue-800 text-xs md:text-sm font-medium px-2 py-1 rounded-full ml-2" id="currentAttachmentsCount">0</span>
+                    </h4>
+                </div>
+                <div id="currentAttachmentsList" class="attachments-grid-enhanced">
+                    <!-- سيتم تعبئته ديناميكياً -->
+                </div>
+            </div>
+
+            <!-- ✅ قسم الملاحظات - تصميم مبسط -->
+            <div class="notes-section-simplified mt-6 md:mt-8">
+                <div class="section-header mb-3 md:mb-4">
+                    <h4 class="section-title">
+                        <i class="fas fa-sticky-note ml-2"></i>
+                        ملاحظات المرفقات
+                    </h4>
+                    <button onclick="showAddNoteModal()" class="btn-outline flex items-center gap-2 min-h-[44px]">
+                        <i class="fas fa-plus"></i>
+                        <span class="hidden md:inline">إضافة ملاحظة جديدة</span>
+                        <span class="md:hidden">إضافة ملاحظة</span>
+                    </button>
+                </div>
+                
+                <!-- ✅ الملاحظات المحفوظة -->
+                <div id="savedNotesDisplay" class="bg-gray-50 rounded-xl p-3 md:p-4 border border-gray-200">
+                    <!-- سيتم تعبئته ديناميكياً -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 🔧 معاينة كاملة الشاشة -->
+<div id="fullScreenViewer" class="full-screen-viewer hidden">
+    <div class="viewer-header">
+        <h3 class="viewer-title text-base md:text-lg" id="viewerImageTitle"></h3>
+        <button onclick="closeFullScreenViewer()" class="viewer-close-btn">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="viewer-content">
+        <img src="" alt="" class="viewer-image" id="viewerImage">
+    </div>
+    <div class="viewer-footer">
+        <button onclick="closeFullScreenViewer()" class="btn-primary min-h-[44px]">
+            <i class="fas fa-times ml-2"></i>
+            إغلاق
+        </button>
+        <a href="#" class="btn-success min-h-[44px] flex items-center justify-center" id="viewerDownloadBtn">
+            <i class="fas fa-download ml-2"></i>
+            تحميل
+        </a>
+    </div>
+</div>
+
+<!-- شريط التحميل للهواتف -->
+<div id="mobileLoader" class="mobile-loader hidden">
+  <div class="loader-content">
+    <div class="loader-spinner"></div>
+    <p class="loader-text">جاري التحميل...</p>
+  </div>
+</div>
+
+<!-- زر العودة للأعلى للهواتف -->
+<button id="scrollToTop" class="scroll-to-top hidden" aria-label="العودة للأعلى">
+  <i class="fas fa-arrow-up"></i>
+</button>
+
+<!-- Add Status Modal -->
+<div id="addStatusModal" class="modal" role="dialog" aria-hidden="true">
+  <div class="modal-content modern-modal compact">
+    <div class="modal-header">
+      <h3 class="text-base md:text-lg font-bold text-gray-900">➕ إضافة حالة جديدة</h3>
+      <button type="button" onclick="hideModal('addStatusModal')" class="modal-close-btn" aria-label="إغلاق">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <form id="addStatusForm" class="modal-body">
+      <div class="form-group">
+        <label for="status_name" class="form-label">اسم الحالة *</label>
+        <input type="text" id="status_name" class="form-input" required placeholder="اسم الحالة الجديدة">
+      </div>
+      
+      <div class="form-group">
+        <label for="status_color" class="form-label">لون الحالة</label>
+        <input type="color" id="status_color" class="form-input h-10" value="#3b82f6">
+      </div>
+      
+      <div class="form-group">
+        <label for="status_description" class="form-label">وصف الحالة</label>
+        <textarea id="status_description" rows="3" class="form-textarea" placeholder="وصف مختصر للحالة..."></textarea>
+      </div>
+      
+      <div class="modal-actions">
+        <button type="button" onclick="hideModal('addStatusModal')" class="btn-secondary min-h-[44px]">إلغاء</button>
+        <button type="submit" class="btn-primary min-h-[44px]">إضافة الحالة</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// تحسينات الجوال للنوافذ
+function initializeMobileModals() {
+    // تحسين إغلاق النوافذ باللمس
+    const modals = document.querySelectorAll('.modal');
+    
+    modals.forEach(modal => {
+        modal.addEventListener('touchstart', function(e) {
+            if (e.target === this) {
+                this.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+            }
+        });
+        
+        modal.addEventListener('touchend', function(e) {
+            if (e.target === this) {
+                this.style.backgroundColor = '';
+            }
+        });
+    });
+    
+    // تحسينات الأزرار داخل النوافذ
+    const modalButtons = document.querySelectorAll('.modal-actions button, .form-action-btn, .btn-primary, .btn-secondary, .btn-success, .btn-warning, .btn-outline');
+    modalButtons.forEach(button => {
+        button.addEventListener('touchstart', function() {
+            this.style.transform = 'scale(0.95)';
+        });
+        
+        button.addEventListener('touchend', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+    
+    // تحسينات الإدخال في النوافذ
+    const modalInputs = document.querySelectorAll('.modal .form-input, .modal .form-select, .modal .form-textarea');
+    modalInputs.forEach(input => {
+        input.addEventListener('focus', function() {
+            this.style.fontSize = '16px'; // منع التكبير في iOS
+        });
+    });
+    
+    // تحسينات خاصة بنافذة المرفقات
+    const attachmentCards = document.querySelectorAll('.attachment-card-enhanced');
+    attachmentCards.forEach(card => {
+        card.addEventListener('touchstart', function() {
+            this.style.transform = 'scale(0.98)';
+        });
+        
+        card.addEventListener('touchend', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+}
+
+// تهيئة تحسينات الجوال للنوافذ
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMobileModals();
+});
+
+// دالة محسنة لإظهار النوافذ في الجوال
+function showModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('active');
+        document.body.classList.add('modal-open');
+        
+        // إضافة تأثير للجوال
+        if (window.innerWidth < 768) {
+            modal.style.padding = '0.5rem';
+        }
+    }
+}
+
+// دالة محسنة لإخفاء النوافذ في الجوال
+function hideModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.classList.remove('modal-open');
+    }
+}
+
+// تحسينات اللمس لزر العودة للأعلى
+const scrollToTopBtn = document.getElementById('scrollToTop');
+if (scrollToTopBtn) {
+    scrollToTopBtn.addEventListener('touchstart', function() {
+        this.style.transform = 'scale(0.9)';
+    });
+    
+    scrollToTopBtn.addEventListener('touchend', function() {
+        this.style.transform = 'scale(1)';
+    });
+}
+
+// تحسينات خاصة بالشاشات الصغيرة جداً
+function handleVerySmallScreens() {
+    const width = window.innerWidth;
+    
+    if (width < 360) {
+        // تعديل أحجام الخطوط للشاشات الصغيرة جداً
+        document.querySelectorAll('.modal-header h3').forEach(title => {
+            title.classList.add('text-base');
+        });
+        
+        // تعديل padding للنوافذ
+        document.querySelectorAll('.modal-body').forEach(body => {
+            body.classList.add('p-3');
+        });
+    }
+}
+
+// استدعاء الدالة عند تحميل الصفحة وتغيير الحجم
+window.addEventListener('load', handleVerySmallScreens);
+window.addEventListener('resize', handleVerySmallScreens);
+</script>

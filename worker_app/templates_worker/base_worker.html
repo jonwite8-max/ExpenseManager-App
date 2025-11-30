@@ -1,0 +1,107 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق العمال - SOFAZI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static_worker', filename='style_worker.css') }}">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- شريط التنقل العلوي -->
+    <nav class="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-4 space-x-reverse">
+                <i class="fas fa-tools text-2xl"></i>
+                <h1 class="text-xl font-bold">تطبيق العمال</h1>
+            </div>
+            <div class="flex items-center space-x-4 space-x-reverse">
+                <span id="current-time" class="text-sm"></span>
+                <span id="current-date" class="text-sm"></span>
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <i class="fas fa-user"></i>
+                    <span>{{ session.get('worker_name', 'عامل') }}</span>
+                </div>
+                <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm">
+                    <i class="fas fa-sign-out-alt ml-1"></i>
+                    خروج
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- القائمة الجانبية -->
+    <div class="flex">
+        <aside class="w-64 bg-white shadow-lg min-h-screen hidden md:block">
+            <div class="p-4">
+                <nav class="mt-8 space-y-2">
+                    <a href="{{ url_for('dashboard') }}" class="flex items-center space-x-2 space-x-reverse p-3 rounded-lg hover:bg-blue-50 text-gray-700 hover:text-blue-600 {% if request.path == '/dashboard' %}bg-blue-100 text-blue-600{% endif %}">
+                        <i class="fas fa-chart-line w-6"></i>
+                        <span>لوحة التحكم</span>
+                    </a>
+                    
+                    <a href="{{ url_for('orders') }}" class="flex items-center space-x-2 space-x-reverse p-3 rounded-lg hover:bg-green-50 text-gray-700 hover:text-green-600 {% if request.path == '/orders' %}bg-green-100 text-green-600{% endif %}">
+                        <i class="fas fa-box w-6"></i>
+                        <span>الطلبيات</span>
+                    </a>
+                    
+                    <a href="{{ url_for('salary') }}" class="flex items-center space-x-2 space-x-reverse p-3 rounded-lg hover:bg-yellow-50 text-gray-700 hover:text-yellow-600 {% if request.path == '/salary' %}bg-yellow-100 text-yellow-600{% endif %}">
+                        <i class="fas fa-money-bill-wave w-6"></i>
+                        <span>الراتب الشهري</span>
+                    </a>
+                    
+                    <a href="{{ url_for('notifications') }}" class="flex items-center space-x-2 space-x-reverse p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 {% if request.path == '/notifications' %}bg-purple-100 text-purple-600{% endif %}">
+                        <i class="fas fa-bell w-6"></i>
+                        <span>الإشعارات</span>
+                        {% if unread_count and unread_count > 0 %}
+                        <span class="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center notification-badge">
+                            {{ unread_count }}
+                        </span>
+                        {% endif %}
+                    </a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- المحتوى الرئيسي -->
+        <main class="flex-1 p-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} mb-4 p-4 rounded-lg">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- القائمة السفلية للهواتف -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+        <div class="flex justify-around p-2">
+            <a href="{{ url_for('dashboard') }}" class="flex flex-col items-center p-2 text-gray-600 {% if request.path == '/dashboard' %}text-blue-600{% endif %}">
+                <i class="fas fa-chart-line"></i>
+                <span class="text-xs mt-1">الرئيسية</span>
+            </a>
+            <a href="{{ url_for('orders') }}" class="flex flex-col items-center p-2 text-gray-600 {% if request.path == '/orders' %}text-green-600{% endif %}">
+                <i class="fas fa-box"></i>
+                <span class="text-xs mt-1">الطلبيات</span>
+            </a>
+            <a href="{{ url_for('salary') }}" class="flex flex-col items-center p-2 text-gray-600 {% if request.path == '/salary' %}text-yellow-600{% endif %}">
+                <i class="fas fa-money-bill-wave"></i>
+                <span class="text-xs mt-1">الراتب</span>
+            </a>
+            <a href="{{ url_for('notifications') }}" class="flex flex-col items-center p-2 text-gray-600 {% if request.path == '/notifications' %}text-purple-600{% endif %}">
+                <i class="fas fa-bell"></i>
+                <span class="text-xs mt-1">الإشعارات</span>
+            </a>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_worker', filename='script_worker.js') }}"></script>
+</body>
+</html>

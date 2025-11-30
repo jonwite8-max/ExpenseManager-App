@@ -1,0 +1,829 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <!-- رأس الصفحة -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">🛒 إدارة المشتريات والمصاريف</h1>
+      <p class="text-gray-600 mt-2">نظام متكامل لمتابعة مشتريات ورشة التلحيم</p>
+    </div>
+    
+    <div class="flex items-center gap-4">
+      <!-- زر التبديل بين أنواع المشتريات -->
+      <div class="bg-white rounded-lg border border-gray-200 p-1 flex">
+        <a href="{{ url_for('purchases', type='fixed') }}" 
+           class="px-4 py-2 rounded-md transition-colors {% if purchase_type == 'fixed' %}bg-blue-500 text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+          مشتريات ثابتة
+        </a>
+        <a href="{{ url_for('purchases', type='variable') }}" 
+           class="px-4 py-2 rounded-md transition-colors {% if purchase_type == 'variable' %}bg-blue-500 text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+          مشتريات متغيرة
+        </a>
+      </div>
+      
+      <button onclick="showModal('addPurchaseModal')" class="btn-success flex items-center gap-2">
+        <i class="fas fa-cart-plus"></i>
+        إضافة شراء
+      </button>
+    </div>
+  </div>
+
+  <!-- الإحصائيات السريعة -->
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <div class="card p-4 text-center">
+      <div class="text-2xl font-bold text-blue-600">{{ purchases|length }}</div>
+      <div class="text-sm text-gray-600 mt-1">إجمالي المشتريات</div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-2xl font-bold text-green-600">{{ purchases|selectattr('status', 'equalto', 'paid')|list|length }}</div>
+      <div class="text-sm text-gray-600 mt-1">مدفوعة</div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-2xl font-bold text-red-600">{{ purchases|selectattr('status', 'equalto', 'unpaid')|list|length }}</div>
+      <div class="text-sm text-gray-600 mt-1">غير مدفوعة</div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-2xl font-bold text-purple-600">{{ "%.2f"|format(purchases|sum(attribute='total_price')) }}</div>
+      <div class="text-sm text-gray-600 mt-1">إجمالي القيمة</div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-2xl font-bold text-orange-600" id="myPurchasesTotal">0</div>
+      <div class="text-sm text-gray-600 mt-1">مشترياتي</div>
+    </div>
+  </div>
+
+  <!-- أدوات البحث والتصفية المتقدمة -->
+  <div class="card p-6 mb-6">
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <!-- بحث -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">🔍 بحث سريع</label>
+        <input 
+          type="text" 
+          id="searchInput"
+          placeholder="ابحث باسم المورد، المنتج..."
+          class="form-input"
+        >
+      </div>
+      
+      <!-- تصفية بالمورد -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">🏢 المورد</label>
+        <select id="supplierFilter" class="form-select">
+          <option value="">جميع الموردين</option>
+          {% for supplier in suppliers %}
+          <option value="{{ supplier.name }}">{{ supplier.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <!-- تصفية بالحالة -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">💰 الحالة</label>
+        <select id="statusFilter" class="form-select">
+          <option value="">جميع الحالات</option>
+          <option value="paid">مدفوعة</option>
+          <option value="unpaid">غير مدفوعة</option>
+        </select>
+      </div>
+
+      <!-- تصفية بالمشتري -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">👤 المشتري</label>
+        <select id="buyerFilter" class="form-select">
+          <option value="">جميع المشترين</option>
+          <option value="أنا">أنا</option>
+          <option value="شريك">شريك</option>
+          <option value="عامل">عامل</option>
+        </select>
+      </div>
+
+      <!-- تصفية بالفئة -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">📁 الفئة</label>
+        <select id="categoryFilter" class="form-select">
+          <option value="">جميع الفئات</option>
+          <option value="حديد ومواد أساسية">حديد ومواد أساسية</option>
+          <option value="عتاد ومحركات">عتاد ومحركات</option>
+          <option value="مصاريف تركيب">مصاريف تركيب</option>
+          <option value="مصاريف تشغيل">مصاريف تشغيل</option>
+          <option value="مصاريف صيانة">مصاريف صيانة</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- جدول المشتريات المحسن -->
+  <div class="table-container">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[1200px]">
+        <thead class="table-header">
+          <tr>
+            <th class="p-4 text-right">#</th>
+            <th class="p-4 text-right">المشتري</th>
+            <th class="p-4 text-right">المورد</th>
+            <th class="p-4 text-right">المنتج</th>
+            <th class="p-4 text-right">السعر والكمية</th>
+            <th class="p-4 text-right">الإجمالي</th>
+            <th class="p-4 text-right">الفئة</th>
+            <th class="p-4 text-right">التاريخ</th>
+            <th class="p-4 text-right">الحالة</th>
+            <th class="p-4 text-right">العمليات</th>
+          </tr>
+        </thead>
+        <tbody id="purchasesTable">
+          {% for purchase in purchases %}
+          <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100 purchase-row" 
+              data-buyer="{{ purchase.buyer or 'أنا' }}"
+              data-category="{{ purchase.category or 'عام' }}"
+              data-status="{{ purchase.status }}">
+            <!-- الرقم -->
+            <td class="p-4">
+              <div class="font-mono text-sm text-gray-500">#{{ purchase.id }}</div>
+              {% if purchase.receipt_image %}
+              <div class="mt-1">
+                <button onclick="showReceiptImage('{{ purchase.receipt_image }}')" class="text-blue-600 hover:text-blue-800 text-xs">
+                  <i class="fas fa-receipt"></i> صورة
+                </button>
+              </div>
+              {% endif %}
+            </td>
+            
+            <!-- المشتري -->
+            <td class="p-4">
+              <div class="flex items-center gap-2">
+                {% if purchase.buyer == 'أنا' %}
+                <span class="badge badge-success text-xs">أنا</span>
+                {% elif purchase.buyer == 'شريك' %}
+                <span class="badge badge-warning text-xs">شريك</span>
+                {% elif purchase.buyer == 'عامل' %}
+                <span class="badge badge-info text-xs">عامل</span>
+                {% else %}
+                <span class="badge badge-secondary text-xs">{{ purchase.buyer or 'أنا' }}</span>
+                {% endif %}
+              </div>
+            </td>
+            
+            <!-- المورد -->
+            <td class="p-4">
+              <div class="space-y-1">
+                {% if purchase.supplier %}
+                <div class="font-semibold text-gray-900">{{ purchase.supplier.name }}</div>
+                <div class="text-xs text-gray-500">{{ purchase.supplier.phone }}</div>
+                <button onclick="showPriceHistory({{ purchase.product_id }}, '{{ purchase.supplier.name }}')" 
+                        class="text-blue-600 hover:text-blue-800 text-xs">
+                  <i class="fas fa-chart-line"></i> تاريخ الأسعار
+                </button>
+                {% else %}
+                <div class="text-gray-400 text-sm">بدون مورد</div>
+                {% endif %}
+              </div>
+            </td>
+            
+            <!-- المنتج -->
+            <td class="p-4">
+              <div class="font-medium text-gray-900">{{ purchase.product.name }}</div>
+              <div class="text-xs text-gray-500">{{ purchase.product.category }}</div>
+            </td>
+            
+            <!-- السعر والكمية -->
+            <td class="p-4">
+              <div class="space-y-1 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-600">السعر:</span>
+                  <span class="font-semibold text-green-600">{{ "%.2f"|format(purchase.price) }} دج</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">الكمية:</span>
+                  <span class="font-semibold text-blue-600">{{ purchase.quantity }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">الوحدة:</span>
+                  <span class="font-semibold text-gray-600">{{ purchase.unit or 'قطعة' }}</span>
+                </div>
+              </div>
+            </td>
+            
+            <!-- الإجمالي -->
+            <td class="p-4">
+              <div class="text-center">
+                <div class="text-lg font-bold text-purple-600">{{ "%.2f"|format(purchase.total_price) }} دج</div>
+                <div class="text-xs text-gray-500">القيمة الإجمالية</div>
+              </div>
+            </td>
+
+            <!-- الفئة -->
+            <td class="p-4">
+              <span class="inline-block px-2 py-1 text-xs rounded-full 
+                {% if purchase.category == 'حديد ومواد أساسية' %}bg-red-100 text-red-800
+                {% elif purchase.category == 'عتاد ومحركات' %}bg-blue-100 text-blue-800
+                {% elif purchase.category == 'مصاريف تركيب' %}bg-green-100 text-green-800
+                {% elif purchase.category == 'مصاريف تشغيل' %}bg-orange-100 text-orange-800
+                {% elif purchase.category == 'مصاريف صيانة' %}bg-purple-100 text-purple-800
+                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                {{ purchase.category or 'عام' }}
+              </span>
+            </td>
+            
+            <!-- التاريخ -->
+            <td class="p-4">
+              <div class="text-sm text-gray-700">{{ purchase.purchase_date.strftime('%Y-%m-%d') }}</div>
+              <div class="text-xs text-gray-500">{{ purchase.created_at.strftime('%H:%M') }}</div>
+            </td>
+            
+            <!-- الحالة -->
+            <td class="p-4">
+              {% if purchase.status == 'paid' %}
+              <span class="badge badge-success">مدفوعة</span>
+              {% else %}
+              <span class="badge badge-danger">غير مدفوعة</span>
+              {% endif %}
+            </td>
+            
+            <!-- العمليات -->
+            <td class="p-4">
+              <div class="flex flex-col gap-2">
+                <!-- دفع -->
+                {% if purchase.status == 'unpaid' %}
+                <a href="{{ url_for('mark_purchase_paid', id=purchase.id) }}" 
+                   onclick="return confirm('هل تريد تعيين هذه العملية كمدفوعة؟')"
+                   class="flex items-center gap-2 text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors text-sm">
+                  <i class="fas fa-check text-xs"></i>
+                  تعيين كمدفوعة
+                </a>
+                {% endif %}
+                
+                <!-- حذف -->
+                <a href="{{ url_for('delete_purchase', id=purchase.id) }}" 
+                   onclick="return confirm('هل أنت متأكد من حذف هذه العملية؟')"
+                   class="flex items-center gap-2 text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors text-sm">
+                  <i class="fas fa-trash text-xs"></i>
+                  حذف
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="10" class="p-12 text-center">
+              <div class="flex flex-col items-center justify-center">
+                <i class="fas fa-cart-shopping text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-500 mb-2">لا توجد مشتريات مسجلة</h3>
+                <p class="text-gray-400 mb-6">ابدأ بإضافة أول عملية شراء</p>
+                <button onclick="showModal('addPurchaseModal')" class="btn-primary flex items-center gap-2">
+                  <i class="fas fa-cart-plus"></i>
+                  إضافة أول شراء
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- الترقيم -->
+  <div class="flex justify-between items-center mt-6">
+    <div class="text-sm text-gray-600">
+      عرض <span class="font-semibold">{{ purchases|length }}</span> من أصل <span class="font-semibold">{{ purchases|length }}</span> عملية شراء
+    </div>
+    <div class="pagination">
+      <button class="page-item">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+      <button class="page-item active">1</button>
+      <button class="page-item">2</button>
+      <button class="page-item">3</button>
+      <button class="page-item">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- مودال إضافة شراء محسن -->
+<div id="addPurchaseModal" class="modal">
+  <div class="modal-content w-full max-w-4xl">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold text-gray-900">🛍️ إضافة عملية شراء جديدة</h3>
+        <button onclick="hideModal('addPurchaseModal')" class="text-gray-400 hover:text-gray-600 text-xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form method="POST" action="{{ url_for('add_purchase') }}" class="space-y-6" id="purchaseForm" enctype="multipart/form-data">
+        <input type="hidden" name="type" value="{{ purchase_type }}">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- معلومات أساسية -->
+          <div class="space-y-4">
+            <h4 class="font-semibold text-gray-900 border-b pb-2">👤 معلومات المشتري</h4>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">المشتري *</label>
+              <select name="buyer" required class="form-select">
+                <option value="أنا">أنا</option>
+                <option value="شريك">شريك</option>
+                <option value="عامل">عامل</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">فئة المصروف *</label>
+              <select name="category" required class="form-select">
+                <option value="حديد ومواد أساسية">حديد ومواد أساسية</option>
+                <option value="عتاد ومحركات">عتاد ومحركات</option>
+                <option value="مصاريف تركيب">مصاريف تركيب</option>
+                <option value="مصاريف تشغيل">مصاريف تشغيل</option>
+                <option value="مصاريف صيانة">مصاريف صيانة</option>
+                <option value="أخرى">أخرى</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- معلومات المورد -->
+          <div class="space-y-4">
+            <h4 class="font-semibold text-gray-900 border-b pb-2">🏢 معلومات المورد (اختياري)</h4>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">اختر المورد</label>
+              <select name="supplier_id" class="form-select" id="supplierSelect" onchange="loadSupplierInfo(this.value)">
+                <option value="">-- اختر المورد (اختياري) --</option>
+                {% for supplier in suppliers %}
+                <option value="{{ supplier.id }}" data-phone="{{ supplier.phone }}" data-address="{{ supplier.address }}">
+                  {{ supplier.name }}
+                </option>
+                {% endfor %}
+              </select>
+              <div class="text-xs text-gray-500 mt-1">يمكنك ترك هذا الحقل فارغاً إذا لم يكن هناك مورد محدد</div>
+            </div>
+            
+            <div id="supplierInfo" class="bg-gray-50 rounded-lg p-4 hidden">
+              <div class="space-y-2 text-sm">
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-phone text-green-600"></i>
+                  <span id="supplierPhone" class="text-gray-700"></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-map-marker-alt text-red-600"></i>
+                  <span id="supplierAddress" class="text-gray-700"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- معلومات المنتج -->
+          <div class="space-y-4">
+            <h4 class="font-semibold text-gray-900 border-b pb-2">📦 معلومات المنتج</h4>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">المنتج *</label>
+              <select name="product_id" required class="form-select" id="productSelect" onchange="loadProductHistory(this.value)">
+                <option value="">-- اختر المنتج --</option>
+                {% for product in products %}
+                <option value="{{ product.id }}">{{ product.name }} - {{ product.category }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div id="productHistory" class="bg-blue-50 rounded-lg p-4 hidden">
+              <h5 class="font-semibold text-blue-800 mb-2 text-sm">📊 آخر الأسعار</h5>
+              <div id="priceHistoryContent" class="text-xs text-blue-700 space-y-1"></div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">سعر الشراء (دج) *</label>
+              <input type="number" step="0.01" name="price" required class="form-input" placeholder="0.00" min="0" id="priceInput" oninput="calculateTotal()">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">الكمية *</label>
+                <input type="number" name="quantity" value="1" required class="form-input" min="1" id="quantityInput" oninput="calculateTotal()">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">الوحدة</label>
+                <select name="unit" class="form-select">
+                  <option value="قطعة">قطعة</option>
+                  <option value="كيلو">كيلو</option>
+                  <option value="متر">متر</option>
+                  <option value="لتر">لتر</option>
+                  <option value="علبة">علبة</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- معلومات إضافية -->
+          <div class="space-y-4">
+            <h4 class="font-semibold text-gray-900 border-b pb-2">📅 معلومات إضافية</h4>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">تاريخ الشراء *</label>
+              <input type="date" name="purchase_date" required class="form-input" value="{{ now.strftime('%Y-%m-%d') if now else '' }}">
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">حالة الدفع *</label>
+              <select name="status" required class="form-select" id="statusSelect" onchange="updateStatusPreview()">
+                <option value="paid">مدفوعة</option>
+                <option value="unpaid">غير مدفوعة (دين)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">صورة الفاتورة (اختياري)</label>
+              <input type="file" name="receipt_image" accept="image/*" class="form-input">
+              <div class="text-xs text-gray-500 mt-1">يمكنك رفع صورة الفاتورة للمراجعة</div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">ملاحظات</label>
+              <textarea name="notes" class="form-input" rows="3" placeholder="ملاحظات إضافية حول عملية الشراء..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- معاينة الحساب -->
+        <div class="bg-blue-50 rounded-lg p-4 mt-4">
+          <h4 class="font-semibold text-gray-900 mb-3">🧮 معاينة الحساب</h4>
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+            <div class="text-center">
+              <div class="text-gray-600">سعر الوحدة</div>
+              <div id="previewPrice" class="font-semibold text-green-600">0.00 دج</div>
+            </div>
+            <div class="text-center">
+              <div class="text-gray-600">الكمية</div>
+              <div id="previewQuantity" class="font-semibold text-blue-600">1</div>
+            </div>
+            <div class="text-center">
+              <div class="text-gray-600">الإجمالي</div>
+              <div id="previewTotal" class="font-bold text-purple-600 text-lg">0.00 دج</div>
+            </div>
+            <div class="text-center">
+              <div class="text-gray-600">الحالة</div>
+              <div id="previewStatus" class="font-semibold text-orange-600">مدفوعة</div>
+            </div>
+            <div class="text-center">
+              <div class="text-gray-600">الفئة</div>
+              <div id="previewCategory" class="font-semibold text-red-600">حديد ومواد أساسية</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-6 border-t">
+          <button type="button" onclick="hideModal('addPurchaseModal')" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+            إلغاء
+          </button>
+          <button type="submit" class="btn-success flex items-center gap-2">
+            <i class="fas fa-save"></i>
+            حفظ العملية
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- مودال عرض صورة الفاتورة -->
+<div id="receiptImageModal" class="modal">
+  <div class="modal-content w-full max-w-2xl">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-bold text-gray-900">🧾 صورة الفاتورة</h3>
+        <button onclick="hideModal('receiptImageModal')" class="text-gray-400 hover:text-gray-600 text-xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="receiptImageContent" class="text-center">
+        <!-- سيتم تحميل الصورة هنا -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- مودال تاريخ الأسعار -->
+<div id="priceHistoryModal" class="modal">
+  <div class="modal-content w-full max-w-2xl">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-bold text-gray-900">📊 تاريخ أسعار المنتج</h3>
+        <button onclick="hideModal('priceHistoryModal')" class="text-gray-400 hover:text-gray-600 text-xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="priceHistoryContent">
+        <!-- سيتم تحميل تاريخ الأسعار هنا -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// المتغيرات العامة
+let currentProductId = null;
+
+// دالة إظهار وإخفاء المودال
+function showModal(modalId) {
+    document.getElementById(modalId).classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function hideModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+    document.body.style.overflow = 'auto';
+}
+
+// دالة تحميل معلومات المورد
+function loadSupplierInfo(supplierId) {
+    const supplierSelect = document.getElementById('supplierSelect');
+    const selectedOption = supplierSelect.options[supplierSelect.selectedIndex];
+    const supplierInfo = document.getElementById('supplierInfo');
+    
+    if (supplierId && selectedOption) {
+        const phone = selectedOption.getAttribute('data-phone');
+        const address = selectedOption.getAttribute('data-address');
+        
+        document.getElementById('supplierPhone').textContent = phone || 'غير متوفر';
+        document.getElementById('supplierAddress').textContent = address || 'غير متوفر';
+        supplierInfo.classList.remove('hidden');
+    } else {
+        supplierInfo.classList.add('hidden');
+    }
+}
+
+// دالة تحميل تاريخ أسعار المنتج
+function loadProductHistory(productId) {
+    const productHistory = document.getElementById('productHistory');
+    const content = document.getElementById('priceHistoryContent');
+    
+    if (productId) {
+        // محاكاة بيانات تاريخ الأسعار (سيتم استبدالها ببيانات حقيقية من الخادم)
+        const sampleData = `
+            <div class="space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span>المورد أ</span>
+                    <span class="font-semibold">450.00 دج</span>
+                    <span class="text-gray-500">2024-01-15</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span>المورد ب</span>
+                    <span class="font-semibold">430.00 دج</span>
+                    <span class="text-gray-500">2024-01-10</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span>المورد ج</span>
+                    <span class="font-semibold">460.00 دج</span>
+                    <span class="text-gray-500">2024-01-05</span>
+                </div>
+            </div>
+        `;
+        
+        content.innerHTML = sampleData;
+        productHistory.classList.remove('hidden');
+    } else {
+        productHistory.classList.add('hidden');
+    }
+}
+
+// دالة حساب الإجمالي
+function calculateTotal() {
+    const price = parseFloat(document.getElementById('priceInput').value) || 0;
+    const quantity = parseInt(document.getElementById('quantityInput').value) || 1;
+    const total = price * quantity;
+    
+    document.getElementById('previewPrice').textContent = price.toFixed(2) + ' دج';
+    document.getElementById('previewQuantity').textContent = quantity;
+    document.getElementById('previewTotal').textContent = total.toFixed(2) + ' دج';
+}
+
+// دالة تحديث حالة الدفع والفئة
+function updateStatusPreview() {
+    const statusSelect = document.getElementById('statusSelect');
+    const categorySelect = document.querySelector('select[name="category"]');
+    
+    const status = statusSelect.options[statusSelect.selectedIndex].text;
+    const category = categorySelect.options[categorySelect.selectedIndex].text;
+    
+    document.getElementById('previewStatus').textContent = status;
+    document.getElementById('previewCategory').textContent = category;
+}
+
+// دالة عرض صورة الفاتورة
+function showReceiptImage(imageUrl) {
+    const content = document.getElementById('receiptImageContent');
+    content.innerHTML = `
+        <img src="${imageUrl}" alt="صورة الفاتورة" class="max-w-full h-auto rounded-lg shadow-lg mx-auto">
+        <div class="mt-4">
+            <a href="${imageUrl}" download class="btn-primary inline-flex items-center gap-2">
+                <i class="fas fa-download"></i>
+                تحميل الصورة
+            </a>
+        </div>
+    `;
+    showModal('receiptImageModal');
+}
+
+// دالة عرض تاريخ الأسعار
+function showPriceHistory(productId, supplierName) {
+    const content = document.getElementById('priceHistoryContent');
+    
+    // محاكاة بيانات تاريخ الأسعار
+    const historyData = `
+        <div class="space-y-4">
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h4 class="font-semibold text-gray-900 mb-3">📈 مقارنة الأسعار</h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between items-center p-2 bg-white rounded">
+                        <span>${supplierName}</span>
+                        <span class="font-bold text-green-600">450.00 دج</span>
+                        <span class="text-gray-500">الحالي</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-white rounded">
+                        <span>المورد أ</span>
+                        <span class="font-bold text-blue-600">430.00 دج</span>
+                        <span class="text-gray-500">أقل سعر</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-white rounded">
+                        <span>المورد ب</span>
+                        <span class="font-bold text-orange-600">460.00 دج</span>
+                        <span class="text-gray-500">أعلى سعر</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-blue-50 rounded-lg p-4">
+                <h4 class="font-semibold text-blue-900 mb-2">📅 السجل التاريخي</h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span>2024-01-15</span>
+                        <span>450.00 دج</span>
+                        <span>${supplierName}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>2024-01-10</span>
+                        <span>445.00 دج</span>
+                        <span>${supplierName}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>2024-01-05</span>
+                        <span>440.00 دج</span>
+                        <span>${supplierName}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    content.innerHTML = historyData;
+    showModal('priceHistoryModal');
+}
+
+// نظام البحث والتصفية المتقدم
+function initSearchAndFilter() {
+    const searchInput = document.getElementById('searchInput');
+    const supplierFilter = document.getElementById('supplierFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const buyerFilter = document.getElementById('buyerFilter');
+    const categoryFilter = document.getElementById('categoryFilter');
+    
+    const rows = document.querySelectorAll('#purchasesTable .purchase-row');
+    
+    function filterRows() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const selectedSupplier = supplierFilter.value;
+        const selectedStatus = statusFilter.value;
+        const selectedBuyer = buyerFilter.value;
+        const selectedCategory = categoryFilter.value;
+        
+        rows.forEach(row => {
+            const rowText = row.textContent.toLowerCase();
+            const rowSupplier = row.querySelector('td:nth-child(3) .font-semibold')?.textContent || '';
+            const rowStatus = row.getAttribute('data-status');
+            const rowBuyer = row.getAttribute('data-buyer');
+            const rowCategory = row.getAttribute('data-category');
+            
+            const matchesSearch = searchTerm === '' || rowText.includes(searchTerm);
+            const matchesSupplier = selectedSupplier === '' || rowSupplier === selectedSupplier || (selectedSupplier === '' && rowSupplier === 'بدون مورد');
+            const matchesStatus = selectedStatus === '' || rowStatus === selectedStatus;
+            const matchesBuyer = selectedBuyer === '' || rowBuyer === selectedBuyer;
+            const matchesCategory = selectedCategory === '' || rowCategory === selectedCategory;
+            
+            row.style.display = (matchesSearch && matchesSupplier && matchesStatus && matchesBuyer && matchesCategory) ? '' : 'none';
+        });
+    }
+    
+    // إضافة مستمعي الأحداث
+    searchInput.addEventListener('input', filterRows);
+    supplierFilter.addEventListener('change', filterRows);
+    statusFilter.addEventListener('change', filterRows);
+    buyerFilter.addEventListener('change', filterRows);
+    categoryFilter.addEventListener('change', filterRows);
+}
+
+// حساب إجمالي مشترياتي
+function calculateMyPurchases() {
+    const myPurchases = Array.from(document.querySelectorAll('.purchase-row'))
+        .filter(row => row.getAttribute('data-buyer') === 'أنا')
+        .reduce((total, row) => {
+            const priceElement = row.querySelector('td:nth-child(6) .text-lg');
+            if (priceElement) {
+                const price = parseFloat(priceElement.textContent.replace(' دج', '')) || 0;
+                return total + price;
+            }
+            return total;
+        }, 0);
+    
+    document.getElementById('myPurchasesTotal').textContent = myPurchases.toFixed(2);
+}
+
+// تهيئة الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    // تحديث الحسابات عند تغيير القيم
+    document.getElementById('priceInput')?.addEventListener('input', calculateTotal);
+    document.getElementById('quantityInput')?.addEventListener('input', calculateTotal);
+    document.getElementById('statusSelect')?.addEventListener('change', updateStatusPreview);
+    document.querySelector('select[name="category"]')?.addEventListener('change', updateStatusPreview);
+    
+    // التهيئة الأولية
+    calculateTotal();
+    updateStatusPreview();
+    initSearchAndFilter();
+    calculateMyPurchases();
+    
+    // تعيين تاريخ اليوم كقيمة افتراضية
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.querySelector('input[name="purchase_date"]');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = today;
+    }
+});
+
+// إغلاق المودال عند النقر خارج المحتوى
+document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal')) {
+        hideModal(event.target.id);
+    }
+});
+
+// إغلاق المودال بالزر Escape
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        document.querySelectorAll('.modal.active').forEach(modal => {
+            hideModal(modal.id);
+        });
+    }
+});
+</script>
+
+<style>
+/* تخصيص إضافي لجدول المشتريات */
+.table-container {
+  max-height: 600px;
+  overflow-y: auto;
+  border-radius: 12px;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  z-index: 10;
+  box-shadow: 0 1px 0 #e2e8f0;
+}
+
+/* تخصيص البادجات */
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  display: inline-block;
+}
+
+.badge-success { background: #dcfce7; color: #166534; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+.badge-info { background: #dbeafe; color: #1e40af; }
+.badge-secondary { background: #f3f4f6; color: #374151; }
+
+/* تحسين التجاوب */
+@media (max-width: 768px) {
+  .table-container {
+    font-size: 0.8rem;
+  }
+  
+  .modal-content {
+    margin: 10px;
+    width: calc(100% - 20px);
+  }
+}
+
+</style>
+{% endblock %}

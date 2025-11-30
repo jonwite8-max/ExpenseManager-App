@@ -1,0 +1,772 @@
+{% extends "base_worker.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-3 sm:px-4">
+    <!-- رأس الصفحة -->
+    <div class="mb-6 md:mb-8 text-center md:text-right">
+        <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">👤 بطاقتي الشخصية</h1>
+        <p class="text-gray-600 mt-2 text-base sm:text-lg">معلومات الحساب والإحصائيات</p>
+    </div>
+    
+    <!-- زر قانون العمل الجديد -->
+    <div class="mb-6 text-center">
+        <button onclick="showLaborLaw()" 
+                class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base transition-all transform hover:scale-[1.02] shadow-lg flex items-center justify-center mx-auto">
+            <i class="fas fa-gavel ml-2"></i>
+            📖 قانون العمل والشروط
+        </button>
+    </div>
+    
+    <div class="grid gap-4 sm:gap-6 lg:grid-cols-2">
+        <!-- البطاقة الشخصية -->
+        <div class="card-modern p-4 sm:p-6">
+            <div class="flex items-center mb-4 sm:mb-6">
+                <div class="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+                    <i class="fas fa-user text-white text-lg sm:text-2xl"></i>
+                </div>
+                <div class="mr-3 sm:mr-4">
+                    <h2 class="text-lg sm:text-xl font-bold text-gray-800">المعلومات الشخصية</h2>
+                    <p class="text-gray-600 text-sm sm:text-base">البيانات الأساسية</p>
+                </div>
+            </div>
+            
+            <div class="space-y-3 sm:space-y-4">
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg sm:rounded-xl">
+                    <div>
+                        <div class="text-xs sm:text-sm text-gray-600">الاسم الكامل</div>
+                        <div class="font-semibold text-gray-800 text-sm sm:text-base">{{ worker.name }}</div>
+                    </div>
+                    <i class="fas fa-id-card text-purple-500 text-base sm:text-lg"></i>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg sm:rounded-xl">
+                    <div>
+                        <div class="text-xs sm:text-sm text-gray-600">رقم الهاتف</div>
+                        <div class="font-semibold text-gray-800 text-sm sm:text-base">{{ worker.phone }}</div>
+                    </div>
+                    <i class="fas fa-phone text-green-500 text-base sm:text-lg"></i>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg sm:rounded-xl">
+                    <div>
+                        <div class="text-xs sm:text-sm text-gray-600">العنوان</div>
+                        <div class="font-semibold text-gray-800 text-sm sm:text-base">{{ worker.address or 'غير محدد' }}</div>
+                    </div>
+                    <i class="fas fa-map-marker-alt text-red-500 text-base sm:text-lg"></i>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg sm:rounded-xl">
+                    <div>
+                        <div class="text-xs sm:text-sm text-gray-600">تاريخ البدء</div>
+                        <div class="font-semibold text-gray-800 text-sm sm:text-base">{{ worker.start_date.strftime('%Y-%m-%d') }}</div>
+                    </div>
+                    <i class="fas fa-calendar-alt text-blue-500 text-base sm:text-lg"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- معلومات الحساب -->
+        <div class="card-modern p-4 sm:p-6">
+            <div class="flex items-center mb-4 sm:mb-6">
+                <div class="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+                    <i class="fas fa-lock text-white text-lg sm:text-2xl"></i>
+                </div>
+                <div class="mr-3 sm:mr-4">
+                    <h2 class="text-lg sm:text-xl font-bold text-gray-800">معلومات الدخول</h2>
+                    <p class="text-gray-600 text-sm sm:text-base">إدارة الحساب</p>
+                </div>
+            </div>
+            
+            <div class="space-y-4 sm:space-y-6">
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg sm:rounded-2xl p-3 sm:p-4 border border-blue-100">
+                    <div class="text-xs sm:text-sm text-gray-600 mb-2">اسم المستخدم</div>
+                    <div class="font-mono font-bold text-gray-800 text-base sm:text-lg break-all">{{ worker.username }}</div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg sm:rounded-2xl p-3 sm:p-4 border border-purple-100">
+                    <div class="text-xs sm:text-sm text-gray-600 mb-2">كلمة المرور الحالية</div>
+                    <div class="flex items-center justify-between">
+                        <input type="password" value="{{ real_password }}" 
+                               class="font-mono font-bold text-gray-800 text-sm sm:text-base bg-transparent border-none w-full overflow-x-auto" 
+                               id="password-field" readonly>
+                        <div class="flex gap-1 sm:gap-2 mr-2">
+                            <button type="button" onclick="togglePasswordVisibility()" 
+                                    class="text-purple-600 hover:text-purple-800 transition-colors p-1 sm:p-2 rounded-lg hover:bg-purple-50"
+                                    id="toggle-password-btn">
+                                <i class="fas fa-eye text-base sm:text-lg"></i>
+                            </button>
+                            <button type="button" onclick="copyPassword()" 
+                                    class="text-green-600 hover:text-green-800 transition-colors p-1 sm:p-2 rounded-lg hover:bg-green-50">
+                                <i class="fas fa-copy text-base sm:text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">كلمة المرور الحقيقية لحسابك</p>
+                </div>
+                
+                <!-- نموذج تغيير كلمة المرور -->
+                <div class="pt-4 sm:pt-6 border-t border-gray-200">
+                    <h3 class="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4">تغيير كلمة المرور</h3>
+                    <form id="change-password-form" class="space-y-3 sm:space-y-4">
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">كلمة المرور الحالية</label>
+                                <input type="password" name="current_password" 
+                                       placeholder="أدخل كلمة المرور الحالية"
+                                       class="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl bg-white text-gray-800 text-xs sm:text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">كلمة المرور الجديدة</label>
+                                <input type="password" name="new_password" 
+                                       placeholder="أدخل كلمة المرور الجديدة"
+                                       class="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl bg-white text-gray-800 text-xs sm:text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">تأكيد كلمة المرور</label>
+                                <input type="password" name="confirm_password" 
+                                       placeholder="أعد إدخال كلمة المرور الجديدة"
+                                       class="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl bg-white text-gray-800 text-xs sm:text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all">
+                            </div>
+                            <button type="submit" 
+                                    class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white py-2 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base transition-all transform hover:scale-[1.02] shadow-lg">
+                                <i class="fas fa-key ml-2"></i>
+                                حفظ كلمة المرور الجديدة
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- التقرير المالي المفصل -->
+    <div class="mt-6 sm:mt-8 card-modern p-4 sm:p-6">
+        <div class="flex items-center mb-4 sm:mb-6">
+            <div class="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+                <i class="fas fa-chart-line text-white text-lg sm:text-2xl"></i>
+            </div>
+            <div class="mr-3 sm:mr-4">
+                <h2 class="text-lg sm:text-xl font-bold text-gray-800">التقرير المالي المفصل</h2>
+                <p class="text-gray-600 text-sm sm:text-base">ملخص الأداء المالي</p>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-2 sm:gap-4 mb-6 sm:mb-8">
+            <div class="text-center p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg sm:rounded-2xl border border-blue-200">
+                <div class="text-lg sm:text-2xl md:text-3xl font-bold text-blue-600">{{ financial_report.total_salary }} دج</div>
+                <div class="text-xs sm:text-sm text-blue-700 font-medium mt-1 sm:mt-2">إجمالي المستحق</div>
+            </div>
+            
+            <div class="text-center p-3 sm:p-4 bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg sm:rounded-2xl border border-green-200">
+                <div class="text-lg sm:text-2xl md:text-3xl font-bold text-green-600">{{ financial_report.bonuses }} دج</div>
+                <div class="text-xs sm:text-sm text-green-700 font-medium mt-1 sm:mt-2">المكافآت والتحفيزات</div>
+            </div>
+            
+            <div class="text-center p-3 sm:p-4 bg-gradient-to-br from-orange-50 to-red-100 rounded-lg sm:rounded-2xl border border-orange-200">
+                <div class="text-lg sm:text-2xl md:text-3xl font-bold text-orange-600">{{ financial_report.deductions }} دج</div>
+                <div class="text-xs sm:text-sm text-orange-700 font-medium mt-1 sm:mt-2">الخصومات</div>
+            </div>
+            
+            <div class="text-center p-3 sm:p-4 bg-gradient-to-br from-purple-50 to-pink-100 rounded-lg sm:rounded-2xl border border-purple-200">
+                <div class="text-lg sm:text-2xl md:text-3xl font-bold text-purple-600">{{ financial_report.net_salary }} دج</div>
+                <div class="text-xs sm:text-sm text-purple-700 font-medium mt-1 sm:mt-2">صافي الراتب</div>
+            </div>
+        </div>
+
+        <!-- التفاصيل المالية -->
+        <div class="grid gap-4 sm:gap-6 md:grid-cols-2">
+            <!-- الإضافات -->
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg sm:rounded-2xl p-4 sm:p-6 border border-green-200">
+                <h3 class="font-bold text-green-800 text-base sm:text-lg mb-3 sm:mb-4 flex items-center">
+                    <i class="fas fa-plus-circle ml-2 text-sm sm:text-base"></i>
+                    الإضافات والمكافآت
+                </h3>
+                <div class="space-y-2 sm:space-y-3 text-xs sm:text-sm">
+                    <div class="flex justify-between items-center p-2 bg-white rounded-lg">
+                        <span class="text-gray-700">الراتب الأساسي:</span>
+                        <span class="font-bold text-green-600 text-xs sm:text-sm">{{ worker.monthly_salary }} دج</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-white rounded-lg">
+                        <span class="text-gray-700">مكافأة العمل الخارجي:</span>
+                        <span class="font-bold text-green-600 text-xs sm:text-sm">{{ worker.outside_work_bonus }} دج</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-white rounded-lg">
+                        <span class="text-gray-700">التحفيزات:</span>
+                        <span class="font-bold text-green-600 text-xs sm:text-sm">{{ worker.incentives }} دج</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 sm:p-3 bg-green-100 rounded-lg mt-3 sm:mt-4">
+                        <span class="font-bold text-green-800 text-xs sm:text-sm">الإجمالي:</span>
+                        <span class="font-bold text-green-800 text-xs sm:text-sm">{{ financial_report.total_income }} دج</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- الخصومات -->
+            <div class="bg-gradient-to-br from-red-50 to-pink-50 rounded-lg sm:rounded-2xl p-4 sm:p-6 border border-red-200">
+                <h3 class="font-bold text-red-800 text-base sm:text-lg mb-3 sm:mb-4 flex items-center">
+                    <i class="fas fa-minus-circle ml-2 text-sm sm:text-base"></i>
+                    الخصومات والاستقطاعات
+                </h3>
+                <div class="space-y-2 sm:space-y-3 text-xs sm:text-sm">
+                    <div class="flex justify-between items-center p-2 bg-white rounded-lg">
+                        <span class="text-gray-700">التسبيقات:</span>
+                        <span class="font-bold text-red-600 text-xs sm:text-sm">{{ worker.advances }} دج</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-white rounded-lg">
+                        <span class="text-gray-700">خصم الغياب:</span>
+                        <span class="font-bold text-red-600 text-xs sm:text-sm">{{ financial_report.absence_deduction }} دج</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-white rounded-lg">
+                        <span class="text-gray-700">غرامات التأخير:</span>
+                        <span class="font-bold text-red-600 text-xs sm:text-sm">{{ financial_report.late_penalty }} دج</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 sm:p-3 bg-red-100 rounded-lg mt-3 sm:mt-4">
+                        <span class="font-bold text-red-800 text-xs sm:text-sm">الإجمالي:</span>
+                        <span class="font-bold text-red-800 text-xs sm:text-sm">{{ financial_report.total_deductions }} دج</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- التقييم فقط -->
+    <div class="mt-6 sm:mt-8 card-modern p-4 sm:p-6 md:p-8 text-center">
+        <div class="max-w-md mx-auto">
+            <div class="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xl sm:shadow-2xl mx-auto mb-4 sm:mb-6">
+                <i class="fas fa-star text-white text-2xl sm:text-3xl"></i>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-bold text-gray-800 mb-2">تقييم أدائك</h2>
+            <p class="text-gray-600 text-sm sm:text-base mb-4 sm:mb-6">بناءً على أدائك في الطلبيات المكتملة</p>
+            
+            <div class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 border border-yellow-200">
+                <div class="text-4xl sm:text-5xl font-bold text-yellow-600 mb-3 sm:mb-4">{{ stats.average_rating }}/10</div>
+                
+                <!-- النجوم -->
+                <div class="flex justify-center space-x-1 sm:space-x-2 mb-4 sm:mb-6 flex-wrap">
+                    {% for i in range(10) %}
+                    <i class="fas fa-star text-{% if i < stats.average_rating %}yellow-400{% else %}gray-300{% endif %} text-lg sm:text-xl transform hover:scale-110 transition-transform"></i>
+                    {% endfor %}
+                </div>
+                
+                <div class="text-yellow-700 font-semibold text-sm sm:text-base">
+                    {% if stats.average_rating >= 9 %}
+                    أداء متميز! 🎉
+                    {% elif stats.average_rating >= 7 %}
+                    أداء جيد جداً 👍
+                    {% elif stats.average_rating >= 5 %}
+                    أداء مقبول 👌
+                    {% else %}
+                    يحتاج تحسين 💪
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة قانون العمل -->
+<div id="laborLawModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <!-- رأس النافذة -->
+        <div class="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 text-white">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">📖 قانون العمل والشروط</h2>
+                <button onclick="closeLaborLaw()" class="text-white hover:text-gray-200 text-2xl">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- محتوى القانون -->
+        <div class="p-6 max-h-[70vh] overflow-y-auto labor-law-content">
+            <!-- سيتم إضافة محتوى القانون هنا عبر JavaScript -->
+        </div>
+        
+        <!-- تذييل النافذة -->
+        <div class="bg-gray-50 p-4 border-t border-gray-200 text-center">
+            <button onclick="closeLaborLaw()" 
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
+                فهمت وشكراً
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// دوال التحكم بنافذة قانون العمل - الإصدار المصحح
+function showLaborLaw() {
+    console.log('✅ showLaborLaw function called');
+    
+    const modal = document.getElementById('laborLawModal');
+    const content = document.querySelector('.labor-law-content');
+    
+    if (!modal) {
+        console.error('❌ Modal not found!');
+        alert('عذراً، حدث خطأ في تحميل النافذة');
+        return;
+    }
+    
+    // 🔥 إصلاح: استخدام قيمة افتراضية إذا لم يكن worker متوفراً
+    const workerSalary = typeof worker !== 'undefined' && worker.monthly_salary ? worker.monthly_salary : 'غير محدد';
+    
+    // محتوى قانون العمل
+    const laborLawContent = `
+    <div class="space-y-6 text-gray-700">
+        <!-- المقدمة -->
+        <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
+            <h3 class="text-lg font-bold text-blue-800 mb-2">🎯 مقدمة</h3>
+            <p class="text-blue-700">مرحباً بك في نظام العمل بشركة SOFAZI. يهدف هذا القانون إلى تنظيم العلاقة بين العامل والإدارة وضمان حقوق جميع الأطراف.</p>
+        </div>
+
+        <!-- الباب الأول: أحكام عامة -->
+        <div class="border-l-4 border-green-500 pl-4">
+            <h3 class="text-xl font-bold text-green-700 mb-4">📜 الباب الأول: أحكام عامة</h3>
+            
+            <div class="space-y-4">
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-green-600">المادة 1: تعريفات</h4>
+                    <ul class="list-disc mr-4 mt-2 space-y-1 text-sm">
+                        <li><strong>العامل:</strong> كل شخص طبيعي يعمل لقاء أجر لدى صاحب العمل</li>
+                        <li><strong>صاحب العمل:</strong> شركة SOFAZI أو من يمثلها</li>
+                        <li><strong>الأجر:</strong> كل ما يحصل عليه العامل نقداً أو عيناً لقاء عمله</li>
+                        <li><strong>ساعات العمل:</strong> الفترة التي يكون فيها العامل تحت تصرف صاحب العمل</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-green-600">المادة 2: نطاق التطبيق</h4>
+                    <p class="text-sm">يطبق هذا القانون على جميع العاملين بشركة SOFAZI بغض النظر عن نوع العمل أو مدة العقد.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- الباب الثاني: ساعات العمل والإجازات -->
+        <div class="border-l-4 border-blue-500 pl-4">
+            <h3 class="text-xl font-bold text-blue-700 mb-4">⏰ الباب الثاني: ساعات العمل والإجازات</h3>
+            
+            <div class="space-y-4">
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-blue-600">المادة 3: ساعات العمل</h4>
+                    <ul class="list-disc mr-4 mt-2 space-y-1 text-sm">
+                        <li>مدة العمل اليومي: 8 ساعات عمل فعلية</li>
+                        <li>مدة العمل الأسبوعي: 48 ساعة كحد أقصى</li>
+                        <li>وقت الراحة: ساعة راحة واحدة على الأقل بعد 5 ساعات عمل متواصلة</li>
+                        <li>العمل الإضافي: يحسب بنسبة 150% من الأجر الأساسي</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-blue-600">المادة 4: الإجازات</h4>
+                    <ul class="list-disc mr-4 mt-2 space-y-1 text-sm">
+                        <li><strong>الإجازة السنوية:</strong> 30 يوم عمل مدفوعة الأجر بعد سنة كاملة من العمل</li>
+                        <li><strong>الإجازة المرضية:</strong> 15 يوم مدفوعة الأجر كاملة، 15 يوم بنصف الأجر</li>
+                        <li><strong>الإجازات الرسمية:</strong> حسب التقويم الرسمي للدولة</li>
+                        <li><strong>إجازة الزواج:</strong> 5 أيام مدفوعة الأجر</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- الباب الثالث: الأجور والحوافز -->
+        <div class="border-l-4 border-yellow-500 pl-4">
+            <h3 class="text-xl font-bold text-yellow-700 mb-4">💰 الباب الثالث: الأجور والحوافز</h3>
+            
+            <div class="space-y-4">
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-yellow-600">المادة 5: هيكل الأجور</h4>
+                    <ul class="list-disc mr-4 mt-2 space-y-1 text-sm">
+                        <li><strong>الراتب الأساسي:</strong> ${workerSalary} دج شهرياً</li>
+                        <li><strong>بدل انتقال:</strong> 500 دج يومياً للعمل خارج الورشة</li>
+                        <li><strong>بدل طعام:</strong> 300 دج يومياً</li>
+                        <li><strong>الحوافز:</strong> حسب أداء العامل وجودة العمل</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-yellow-600">المادة 6: استحقاق الأجر</h4>
+                    <ul class="list-disc mr-4 mt-2 space-y-1 text-sm">
+                        <li>يستحق العامل أجره كاملاً عند انتهاء كل شهر</li>
+                        <li>يتم الدفع خلال أول 5 أيام من الشهر التالي</li>
+                        <li>يخصم من الأجر أيام الغياب غير المبرر</li>
+                        <li>يحتفظ العامل بحقه في الأجر أثناء الإجازات المرضية والعطل الرسمية</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- الباب الرابع: الواجبات والمسؤوليات -->
+        <div class="border-l-4 border-red-500 pl-4">
+            <h3 class="text-xl font-bold text-red-700 mb-4">⚖️ الباب الرابع: الواجبات والمسؤوليات</h3>
+            
+            <div class="space-y-4">
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-red-600">المادة 7: واجبات العامل</h4>
+                    <ul class="list-disc mr-4 mt-2 space-y-1 text-sm">
+                        <li>الالتزام بمواعيد العمل الرسمية</li>
+                        <li>تنفيذ التعليمات الصادرة من المسؤولين</li>
+                        <li>المحافظة على معدات وأدوات العمل</li>
+                        <li>مراعاة قواعد السلامة والصحة المهنية</li>
+                        <li>الحفاظ على سرية معلومات العمل</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-red-600">المادة 8: الجزاءات التأديبية</h4>
+                    <ul class="list-disc mr-4 mt-2 space-y-1 text-sm">
+                        <li><strong>إنذار شفوي:</strong> للمخالفات البسيطة</li>
+                        <li><strong>إنذار كتابي:</strong> لتكرار المخالفات</li>
+                        <li><strong>خصم مالي:</strong> للغياب غير المبرر والتأخير</li>
+                        <li><strong>الفصل:</strong> في حالات المخالفات الجسيمة</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- الباب الخامس: السلامة والصحة المهنية -->
+        <div class="border-l-4 border-purple-500 pl-4">
+            <h3 class="text-xl font-bold text-purple-700 mb-4">🛡️ الباب الخامس: السلامة والصحة المهنية</h3>
+            
+            <div class="space-y-4">
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-purple-600">المادة 9: معدات الوقاية</h4>
+                    <ul class="list-disc mr-4 mt-2 space-y-1 text-sm">
+                        <li>يجب ارتداء الخوذة الواقية في مواقع العمل</li>
+                        <li>استخدام القفازات الواقية عند التعامل مع المواد الخطرة</li>
+                        <li>ارتداء الأحذية Safety في جميع الأوقات</li>
+                        <li>استخدام النظارات الواقية عند العمل باللحام والقطع</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-purple-600">المادة 10: الإسعافات الأولية</h4>
+                    <ul class="list-disc mr-4 mt-2 space-y-1 text-sm">
+                        <li>يجب الإبلاغ فوراً عن أي إصابة مهنية</li>
+                        <li>تتوفر صيدلية إسعافات أولية في موقع العمل</li>
+                        <li>يتم تحمل الشركة لتكاليف العلاج في حالات إصابات العمل</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- الباب السادس: أحكام ختامية -->
+        <div class="border-l-4 border-gray-500 pl-4">
+            <h3 class="text-xl font-bold text-gray-700 mb-4">📋 الباب السادس: أحكام ختامية</h3>
+            
+            <div class="space-y-4">
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-gray-600">المادة 11: تعديل النظام</h4>
+                    <p class="text-sm">تحتفظ الإدارة بحق تعديل هذا النظام مع إخطار العاملين قبل 30 يوماً من التطبيق.</p>
+                </div>
+
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-semibold text-gray-600">المادة 12: حل النزاعات</h4>
+                    <p class="text-sm">في حالة نشوء أي نزاع، يتم حله ودياً أولاً، ثم باللجوء إلى الجهات المختصة.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- خاتمة -->
+        <div class="bg-green-50 p-4 rounded-xl border border-green-200 text-center">
+            <h3 class="text-lg font-bold text-green-800 mb-2">✅ خاتمة</h3>
+            <p class="text-green-700">نتمنى لكم عملاً موفقاً وآمناً، ونسعى معاً لتحقيق بيئة عمل مثالية تحترم حقوق الجميع.</p>
+            <p class="text-green-600 text-sm mt-2">إدارة شركة SOFAZI</p>
+        </div>
+    </div>
+    `;
+    
+    content.innerHTML = laborLawContent;
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    
+    console.log('✅ Modal should be visible now');
+}
+
+function closeLaborLaw() {
+    console.log('🔒 closeLaborLaw function called');
+    const modal = document.getElementById('laborLawModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// تهيئة الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ DOM loaded - labor law functions ready');
+    
+    // إغلاق النافذة بالضغط على ESC
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeLaborLaw();
+        }
+    });
+
+    // إغلاق النافذة بالضغط خارج المحتوى
+    const modal = document.getElementById('laborLawModal');
+    if (modal) {
+        modal.addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeLaborLaw();
+            }
+        });
+    }
+
+    // 🔥 اختبار: تأكد من أن الزر يستدعي الدالة الصحيحة
+    const laborLawButton = document.querySelector('button[onclick="showLaborLaw()"]');
+    if (laborLawButton) {
+        console.log('✅ Labor law button found:', laborLawButton);
+        // إضافة event listener إضافي للتأكد
+        laborLawButton.addEventListener('click', function(e) {
+            console.log('✅ Button clicked via event listener');
+            showLaborLaw();
+        });
+    } else {
+        console.log('❌ Labor law button not found!');
+    }
+
+    // تأثيرات البطاقات الأصلية
+    const cards = document.querySelectorAll('.card-modern');
+    cards.forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.1}s`;
+        card.classList.add('animate-fade-in-up');
+    });
+
+    // حماية حقل كلمة المرور
+    const passwordField = document.getElementById('password-field');
+    if (passwordField) {
+        passwordField.addEventListener('copy', function(e) {
+            if (!e.clipboardData) {
+                e.preventDefault();
+            }
+        });
+        
+        passwordField.addEventListener('cut', function(e) {
+            e.preventDefault();
+        });
+        
+        passwordField.addEventListener('paste', function(e) {
+            e.preventDefault();
+        });
+    }
+});
+
+// 🔥 الدوال الأصلية - احتفظ بها
+function togglePasswordVisibility() {
+    const passwordField = document.getElementById('password-field');
+    const toggleButton = document.getElementById('toggle-password-btn');
+    
+    if (passwordField.type === 'password') {
+        passwordField.type = 'text';
+        toggleButton.innerHTML = '<i class="fas fa-eye-slash text-base sm:text-lg"></i>';
+        toggleButton.classList.add('text-purple-800');
+    } else {
+        passwordField.type = 'password';
+        toggleButton.innerHTML = '<i class="fas fa-eye text-base sm:text-lg"></i>';
+        toggleButton.classList.remove('text-purple-800');
+    }
+}
+
+function copyPassword() {
+    const passwordField = document.getElementById('password-field');
+    passwordField.select();
+    passwordField.setSelectionRange(0, 99999);
+    
+    try {
+        navigator.clipboard.writeText(passwordField.value).then(function() {
+            showToast('تم نسخ كلمة المرور', 'success');
+        }).catch(function(err) {
+            document.execCommand('copy');
+            showToast('تم نسخ كلمة المرور', 'success');
+        });
+    } catch (err) {
+        document.execCommand('copy');
+        showToast('تم نسخ كلمة المرور', 'success');
+    }
+}
+
+function showToast(message, type = 'info') {
+    if (typeof window.showToast === 'undefined') {
+        alert(message);
+    } else {
+        window.showToast(message, type);
+    }
+}
+
+// تغيير كلمة المرور
+document.getElementById('change-password-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const submitButton = this.querySelector('button[type="submit"]');
+    const originalText = submitButton.innerHTML;
+    
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> جاري الحفظ...';
+    submitButton.disabled = true;
+    
+    fetch('/api/worker/change-password', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('تم تغيير كلمة المرور بنجاح', 'success');
+            this.reset();
+        } else {
+            showToast(data.error || 'حدث خطأ غير معروف', 'error');
+        }
+    })
+    .catch(error => {
+        showToast('حدث خطأ في الاتصال', 'error');
+        console.error('Error:', error);
+    })
+    .finally(() => {
+        submitButton.innerHTML = originalText;
+        submitButton.disabled = false;
+    });
+});
+</script>
+
+<style>
+/* 🔥 تأكد من أن النافذة تعمل */
+#laborLawModal {
+    transition: opacity 0.3s ease;
+}
+
+#laborLawModal:not(.hidden) {
+    display: flex !important;
+    opacity: 1;
+}
+
+#laborLawModal.hidden {
+    display: none !important;
+    opacity: 0;
+}
+
+/* تنسيقات خاصة لقانون العمل */
+.labor-law-content {
+    line-height: 1.6;
+}
+
+.labor-law-content h3 {
+    margin-bottom: 1rem;
+}
+
+.labor-law-content h4 {
+    margin-bottom: 0.5rem;
+}
+
+.labor-law-content ul {
+    margin-right: 1rem;
+}
+
+.labor-law-content li {
+    margin-bottom: 0.25rem;
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* تحسينات للجوال */
+@media (max-width: 640px) {
+    .card-modern {
+        margin: 4px 0;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    
+    .grid-cols-2 > * {
+        margin-bottom: 8px;
+    }
+    
+    /* تحسين عرض النصوص على الشاشات الصغيرة */
+    .text-break {
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+}
+
+/* تحسينات للشاشات متوسطة الحجم */
+@media (max-width: 768px) {
+    .card-modern {
+        border-radius: 18px;
+    }
+}
+
+/* تحسينات التباين والقراءة على الجوال */
+@media (max-width: 640px) {
+    .font-semibold {
+        font-weight: 600;
+    }
+    
+    .text-gray-800 {
+        color: #1f2937;
+    }
+    
+    .text-gray-600 {
+        color: #4b5563;
+    }
+    
+    /* تحسين مساحات اللمس للأزرار */
+    button, 
+    [type="button"], 
+    [type="submit"] {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    /* تحسين مساحة اللمس للأيقونات الصغيرة */
+    .p-1 {
+        padding: 10px;
+    }
+}
+
+/* تحسينات للعرض الأفقي على الجوال */
+@media (max-width: 640px) and (orientation: landscape) {
+    .card-modern {
+        margin: 6px 0;
+    }
+    
+    .grid-cols-2 {
+        gap: 8px;
+    }
+}
+
+/* 🔥 تنسيقات خاصة لقانون العمل */
+.labor-law-content h3 {
+    margin-bottom: 1rem;
+}
+
+.labor-law-content h4 {
+    margin-bottom: 0.5rem;
+}
+
+.labor-law-content ul {
+    margin-right: 1rem;
+}
+
+.labor-law-content li {
+    margin-bottom: 0.25rem;
+}
+
+/* تأثيرات للبطاقات داخل القانون */
+.labor-law-content .bg-white {
+    transition: all 0.3s ease;
+}
+
+.labor-law-content .bg-white:hover {
+    transform: translateX(-4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,2380 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- رأس الصفحة المحسن -->
+    <div class="mb-8">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div class="flex items-center space-x-4 space-x-reverse">
+                <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <i class="fas fa-tasks text-2xl text-blue-600 dark:text-blue-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">📋 نظام المهام الذكي</h1>
+                    <p class="text-gray-600 dark:text-gray-300 mt-2">
+                        إدارة ومتابعة جميع المهام تلقائياً ويدوياً
+                        <span class="text-blue-600 dark:text-blue-400 font-medium" id="tasks-live-time"></span>
+                    </p>
+                </div>
+            </div>
+            <div class="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
+                <button onclick="generateAutoTasks()" class="btn-primary flex items-center justify-center gap-2" id="generate-tasks-btn">
+                    <i class="fas fa-robot"></i>
+                    توليد مهام تلقائية
+                    <span id="new-tasks-count" class="hidden bg-white text-blue-600 text-xs px-2 py-1 rounded-full"></span>
+                </button>
+                <button onclick="createAdminTask()" class="btn-warning flex items-center justify-center gap-2">
+                    <i class="fas fa-user-shield"></i>
+                    مهمة أدمن جديدة
+                </button>
+                <button onclick="showAddTaskModal()" class="btn-success flex items-center justify-center gap-2">
+                    <i class="fas fa-plus"></i>
+                    إضافة مهمة جديدة
+                </button>
+                <button onclick="refreshTasks()" class="btn-secondary flex items-center justify-center gap-2">
+                    <i class="fas fa-sync-alt"></i>
+                    تحديث
+                </button>
+                <button onclick="archiveCompletedTasks()" class="btn-info flex items-center justify-center gap-2">
+                    <i class="fas fa-archive"></i>
+                    أرشفة المكتملة
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة محسنة -->
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+        <div class="card p-4 text-center hover:shadow-lg transition-shadow cursor-pointer" onclick="filterByStatus('all')">
+            <div class="text-2xl font-bold text-gray-700 dark:text-gray-300">{{ stats.total }}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">إجمالي المهام</div>
+        </div>
+        <div class="card p-4 text-center hover:shadow-lg transition-shadow cursor-pointer" onclick="filterByStatus('pending')">
+            <div class="text-2xl font-bold text-orange-600">{{ stats.pending }}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">قيد الانتظار</div>
+        </div>
+        <div class="card p-4 text-center hover:shadow-lg transition-shadow cursor-pointer" onclick="filterByPriority('high,critical')">
+            <div class="text-2xl font-bold text-red-600">{{ stats.urgent }}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">عاجلة</div>
+        </div>
+        <div class="card p-4 text-center hover:shadow-lg transition-shadow cursor-pointer" onclick="filterByStatus('in_progress')">
+            <div class="text-2xl font-bold text-blue-600">{{ stats.in_progress }}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">قيد التنفيذ</div>
+        </div>
+        <div class="card p-4 text-center hover:shadow-lg transition-shadow cursor-pointer" onclick="filterByStatus('completed')">
+            <div class="text-2xl font-bold text-green-600">{{ stats.completed }}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">مكتملة</div>
+        </div>
+        <div class="card p-4 text-center hover:shadow-lg transition-shadow cursor-pointer" onclick="filterByStatus('waiting_approval')">
+            <div class="text-2xl font-bold text-yellow-600">{{ stats.waiting_approval }}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">بانتظار موافقة</div>
+        </div>
+    </div>
+
+    <!-- فلترة متقدمة -->
+    <div class="card p-4 mb-6">
+        <div class="flex flex-col lg:flex-row gap-4">
+            <!-- فلتر الحالة -->
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <i class="fas fa-filter ml-1"></i>
+                    حالة المهمة
+                </label>
+                <select id="status-filter" onchange="filterTasks()" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>جميع الحالات</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>قيد الانتظار</option>
+                    <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>قيد التنفيذ</option>
+                    <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>مكتملة</option>
+                    <option value="suspended" {% if status_filter == 'suspended' %}selected{% endif %}>معلقة</option>
+                    <option value="waiting_approval" {% if waiting_approval %}selected{% endif %}>بانتظار الموافقة</option>
+                </select>
+            </div>
+
+            <!-- فلتر الأولوية -->
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <i class="fas fa-exclamation-circle ml-1"></i>
+                    الأولوية
+                </label>
+                <select id="priority-filter" onchange="filterTasks()" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="all">جميع الأولويات</option>
+                    <option value="low" {% if priority_filter == 'low' %}selected{% endif %}>منخفضة</option>
+                    <option value="medium" {% if priority_filter == 'medium' %}selected{% endif %}>متوسطة</option>
+                    <option value="high" {% if priority_filter == 'high' %}selected{% endif %}>عالية</option>
+                    <option value="critical" {% if priority_filter == 'critical' %}selected{% endif %}>حرجة</option>
+                </select>
+            </div>
+
+            <!-- فلتر النوع -->
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <i class="fas fa-tag ml-1"></i>
+                    نوع المهمة
+                </label>
+                <select id="type-filter" onchange="filterTasks()" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="all">جميع الأنواع</option>
+                    <option value="debt" {% if task_type_filter == 'debt' %}selected{% endif %}>ديون</option>
+                    <option value="order" {% if task_type_filter == 'order' %}selected{% endif %}>طلبيات</option>
+                    <option value="worker" {% if task_type_filter == 'worker' %}selected{% endif %}>عمال</option>
+                    <option value="expense" {% if task_type_filter == 'expense' %}selected{% endif %}>مصاريف</option>
+                    <option value="system" {% if task_type_filter == 'system' %}selected{% endif %}>نظام</option>
+                    <option value="general" {% if task_type_filter == 'general' %}selected{% endif %}>عام</option>
+                </select>
+            </div>
+
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <i class="fas fa-layer-group ml-1"></i>
+                    نطاق المهمة
+                </label>
+                <select id="scope-filter" onchange="filterTasks()" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="all">جميع النطاقات</option>
+                    <option value="system" {% if scope_filter == 'system' %}selected{% endif %}>مهام النظام</option>
+                    <option value="accountability" {% if scope_filter == 'accountability' %}selected{% endif %}>محاسبة الشركاء</option>
+                    <option value="internal" {% if scope_filter == 'internal' %}selected{% endif %}>مهام داخلية</option>
+                    <option value="worker" {% if scope_filter == 'worker' %}selected{% endif %}>مهام العمال</option>
+                    <option value="admin_management" {% if scope_filter == 'admin_management' %}selected{% endif %}>مهام الأدمن</option>
+                </select>
+            </div>
+
+            <!-- فلتر الأدمن المعين -->
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <i class="fas fa-user-shield ml-1"></i>
+                    الأدمن المعين
+                </label>
+                <select id="admin-filter" onchange="filterTasks()" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="all">جميع الأدمن</option>
+                    <!-- سيتم ملؤه بالجافاسكريبت -->
+                </select>
+            </div>
+
+            <!-- فلتر التاريخ -->
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <i class="fas fa-calendar ml-1"></i>
+                    الموعد النهائي
+                </label>
+                <select id="date-filter" onchange="filterTasks()" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="all">جميع المواعيد</option>
+                    <option value="today" {% if date_filter == 'today' %}selected{% endif %}>اليوم</option>
+                    <option value="tomorrow" {% if date_filter == 'tomorrow' %}selected{% endif %}>غداً</option>
+                    <option value="week" {% if date_filter == 'week' %}selected{% endif %}>هذا الأسبوع</option>
+                    <option value="overdue" {% if date_filter == 'overdue' %}selected{% endif %}>متأخرة</option>
+                    <option value="upcoming" {% if date_filter == 'upcoming' %}selected{% endif %}>قادمة</option>
+                </select>
+            </div>
+
+            <!-- زر إعادة التعيين -->
+            <div class="flex items-end">
+                <button onclick="resetFilters()" class="btn-secondary whitespace-nowrap">
+                    <i class="fas fa-redo ml-1"></i>
+                    إعادة التعيين
+                </button>
+            </div>
+        </div>
+
+        <!-- بحث سريع -->
+        <div class="mt-4">
+            <div class="relative">
+                <input type="text" id="task-search" placeholder="ابحث في المهام..." 
+                       class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pl-10 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                       onkeyup="searchTasks()">
+                <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- مؤشر التقدم -->
+    <div class="card p-4 mb-6 hidden" id="progress-indicator">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span class="text-gray-700 dark:text-gray-300" id="progress-text">جاري معالجة المهام...</span>
+            </div>
+            <div class="text-sm text-gray-500" id="progress-details"></div>
+        </div>
+    </div>
+
+    <!-- حاوية المهام -->
+    <div class="card p-4">
+        {% if tasks %}
+        <div class="space-y-4" id="tasks-container">
+            {% for task in tasks %}
+            <div class="task-item flex items-start p-4 border rounded-lg transition-all duration-300 hover:shadow-md 
+                {% if task.priority == 'critical' %}border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20
+                {% elif task.priority == 'high' %}border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20
+                {% elif task.priority == 'medium' %}border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20
+                {% else %}border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20{% endif %}
+                {% if task.status == 'completed' %}opacity-70{% endif %}"
+                data-task-id="{{ task.id }}"
+                data-priority="{{ task.priority }}"
+                data-status="{{ task.status }}"
+                data-type="{{ task.task_type }}"
+                data-scope="{{ task.task_scope }}"
+                data-due-date="{{ task.due_date.strftime('%Y-%m-%d') if task.due_date else '' }}"
+                data-search-text="{{ task.title.lower() }} {{ task.description.lower() if task.description else '' }} {{ task.assigned_to.lower() if task.assigned_to else '' }} {{ task.worker.name.lower() if task.worker else '' }} {{ task.assigned_by_admin.lower() if task.assigned_by_admin else '' }}">
+                
+                <!-- حالة المهمة - مخفي لمهام الطلبيات -->
+                {% if task.task_type != 'order' or not task.worker_id %}
+                <div class="flex-shrink-0 mt-1 mr-3">
+                    <div class="relative">
+                        <input type="checkbox" 
+                               {% if task.status == 'completed' %}checked{% endif %}
+                               onchange="toggleTaskStatus({{ task.id }}, this.checked)"
+                               class="h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer">
+                        {% if task.auto_generated %}
+                        <i class="fas fa-robot text-blue-500 text-xs absolute -top-1 -right-1"></i>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="flex-shrink-0 mt-1 mr-3 w-5"></div>
+                {% endif %}
+
+                <!-- محتوى المهمة -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between">
+                        <div class="min-w-0 flex-1">
+                            <h3 class="font-semibold text-gray-900 dark:text-white text-lg truncate {% if task.status == 'completed' %}line-through{% endif %}">
+                                {{ task.title }}
+                                {% if task.is_overdue and task.status != 'completed' %}
+                                <span class="text-red-500 text-sm ml-2" title="مهمة متأخرة">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </span>
+                                {% endif %}
+                            </h3>
+                            
+                            {% if task.description %}
+                            <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm line-clamp-2">{{ task.description }}</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="flex items-center space-x-2 space-x-reverse ml-4 flex-shrink-0">
+                            <!-- بادج الأولوية -->
+                            <span class="px-2 py-1 rounded-full text-xs font-medium 
+                                {% if task.priority == 'critical' %}bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100
+                                {% elif task.priority == 'high' %}bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100
+                                {% elif task.priority == 'medium' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100
+                                {% else %}bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100{% endif %}">
+                                {{ 'حرجة' if task.priority == 'critical' else 'عالية' if task.priority == 'high' else 'متوسطة' if task.priority == 'medium' else 'منخفضة' }}
+                            </span>
+
+                            <!-- بادج النوع -->
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                {{ 'ديون' if task.task_type == 'debt' else 'طلبيات' if task.task_type == 'order' else 'عمال' if task.task_type == 'worker' else 'مصاريف' if task.task_type == 'expense' else 'نظام' if task.task_type == 'system' else 'عام' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- معلومات إضافية -->
+                    <div class="flex flex-wrap items-center justify-between mt-3">
+                        <div class="flex items-center space-x-4 space-x-reverse text-sm text-gray-500 dark:text-gray-400">
+                            {% if task.assigned_to %}
+                            <span class="flex items-center">
+                                <i class="fas fa-user ml-1"></i>
+                                {{ task.assigned_to }}
+                            </span>
+                            {% endif %}
+                            
+                            {% if task.assigned_by_admin %}
+                            <span class="flex items-center">
+                                <i class="fas fa-user-shield ml-1"></i>
+                                المعين بواسطة: {{ task.assigned_by_admin }}
+                            </span>
+                            {% endif %}
+                            
+                            {% if task.due_date %}
+                            <span class="flex items-center {% if task.is_overdue and task.status != 'completed' %}text-red-600 font-medium{% endif %}">
+                                <i class="fas fa-calendar ml-1"></i>
+                                {% if task.is_overdue and task.status != 'completed' %}تأخرت: {% endif %}
+                                {{ task.due_date.strftime('%Y-%m-%d') }}
+                                {% if task.days_until_due and not task.is_overdue %}
+                                <span class="text-xs text-gray-400 mr-1">({{ task.days_until_due }} يوم)</span>
+                                {% endif %}
+                            </span>
+                            {% endif %}
+
+                            {% if task.related_entity_info %}
+                            <span class="flex items-center">
+                                <i class="fas fa-link ml-1"></i>
+                                {{ task.related_entity_info }}
+                            </span>
+                            {% endif %}
+
+                            <span class="flex items-center text-xs">
+                                <i class="fas fa-clock ml-1"></i>
+                                {{ task.created_at.strftime('%Y-%m-%d') }}
+                            </span>
+                        </div>
+
+                        <!-- أزرار التحكم - محدثة -->
+                        <div class="flex items-center space-x-2 space-x-reverse mt-2 sm:mt-0">
+                            {% if task.task_scope == 'admin_management' %}
+                                <!-- مهام الأدمن للأدمن -->
+                                {% if task.status != 'completed' and task.status != 'suspended' %}
+                                    {% if task.status == 'pending' %}
+                                    <button onclick="acceptAdminTask({{ task.id }})" 
+                                            class="text-green-600 hover:text-green-800 dark:hover:text-green-400 transition-colors p-1 rounded hover:bg-green-100 dark:hover:bg-green-900"
+                                            title="قبول المهمة وبدء التنفيذ">
+                                        <i class="fas fa-check-circle text-lg"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    <button onclick="suspendTask({{ task.id }})" 
+                                            class="text-orange-600 hover:text-orange-800 dark:hover:text-orange-400 transition-colors p-1 rounded hover:bg-orange-100 dark:hover:bg-orange-900"
+                                            title="تعليق المهمة">
+                                        <i class="fas fa-pause text-lg"></i>
+                                    </button>
+                                    
+                                    <button onclick="completeTask({{ task.id }})" 
+                                            class="text-green-600 hover:text-green-800 dark:hover:text-green-400 transition-colors p-1 rounded hover:bg-green-100 dark:hover:bg-green-900"
+                                            title="إكمال المهمة">
+                                        <i class="fas fa-check-double text-lg"></i>
+                                    </button>
+                                {% endif %}
+                                
+                                {% if task.status == 'suspended' %}
+                                <button onclick="resumeTask({{ task.id }})" 
+                                        class="text-green-600 hover:text-green-800 dark:hover:text-green-400 transition-colors p-1 rounded hover:bg-green-100 dark:hover:bg-green-900"
+                                        title="استئناف المهمة">
+                                    <i class="fas fa-play text-lg"></i>
+                                </button>
+                                {% endif %}
+                                
+                            {% elif task.task_type == 'order' and task.worker_id %}
+                                <!-- مهام الطلبيات المعينة للعامل -->
+                                <!-- لا تظهر أي أزرار تحكم -->
+                                
+                            {% else %}
+                                <!-- المهام العادية -->
+                                {% if task.status != 'completed' and task.status != 'suspended' %}
+                                <button onclick="startTask({{ task.id }})" 
+                                        class="text-blue-600 hover:text-blue-800 dark:hover:text-blue-400 transition-colors p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900"
+                                        title="بدء التنفيذ">
+                                    <i class="fas fa-play-circle text-lg"></i>
+                                </button>
+                                
+                                <button onclick="completeTask({{ task.id }})" 
+                                        class="text-green-600 hover:text-green-800 dark:hover:text-green-400 transition-colors p-1 rounded hover:bg-green-100 dark:hover:bg-green-900"
+                                        title="إكمال المهمة">
+                                    <i class="fas fa-check-circle text-lg"></i>
+                                </button>
+                                {% endif %}
+                            {% endif %}
+
+                            <!-- أزرار الإدارة المشتركة -->
+                            {% if is_admin_user() and task.task_type != 'order' %}
+                                {% if task.status == 'suspended' and task.task_scope != 'admin_management' %}
+                                <button onclick="resumeTask({{ task.id }})" 
+                                        class="text-green-600 hover:text-green-800 dark:hover:text-green-400 transition-colors p-1 rounded hover:bg-green-100 dark:hover:bg-green-900"
+                                        title="استئناف المهمة">
+                                    <i class="fas fa-play text-lg"></i>
+                                </button>
+                                {% elif task.status != 'suspended' and task.task_scope != 'admin_management' %}
+                                <button onclick="suspendTask({{ task.id }})" 
+                                        class="text-orange-600 hover:text-orange-800 dark:hover:text-orange-400 transition-colors p-1 rounded hover:bg-orange-100 dark:hover:bg-orange-900"
+                                        title="تعليق المهمة">
+                                    <i class="fas fa-pause text-lg"></i>
+                                </button>
+                                {% endif %}
+                                
+                                {% if task.waiting_approval %}
+                                <button onclick="approveTask({{ task.id }})" 
+                                        class="text-green-600 hover:text-green-800 dark:hover:text-green-400 transition-colors p-1 rounded hover:bg-green-100 dark:hover:bg-green-900"
+                                        title="الموافقة على المهمة">
+                                    <i class="fas fa-check-double text-lg"></i>
+                                </button>
+                                
+                                <button onclick="rejectTask({{ task.id }})" 
+                                        class="text-red-600 hover:text-red-800 dark:hover:text-red-400 transition-colors p-1 rounded hover:bg-red-100 dark:hover:bg-red-900"
+                                        title="رفض المهمة">
+                                    <i class="fas fa-times-circle text-lg"></i>
+                                </button>
+                                {% endif %}
+                                
+                                {% if task.task_type != 'order' %}
+                                <button onclick="reassignTask({{ task.id }})" 
+                                        class="text-purple-600 hover:text-purple-800 dark:hover:text-purple-400 transition-colors p-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900"
+                                        title="إعادة تعيين المهمة">
+                                    <i class="fas fa-user-friends text-lg"></i>
+                                </button>
+                                {% endif %}
+                            {% endif %}
+                            
+                            <!-- زر التعديل (مخفي لمهام الطلبيات) -->
+                            {% if task.task_type != 'order' %}
+                            <button onclick="editTask({{ task.id }})" 
+                                    class="text-blue-600 hover:text-blue-800 dark:hover:text-blue-400 transition-colors p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900"
+                                    title="تعديل المهمة">
+                                <i class="fas fa-edit text-lg"></i>
+                            </button>
+                            {% endif %}
+                            
+                            <!-- زر التفاصيل -->
+                            <button onclick="showTaskDetails({{ task.id }})" 
+                                    class="text-purple-600 hover:text-purple-800 dark:hover:text-purple-400 transition-colors p-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900"
+                                    title="عرض التفاصيل">
+                                <i class="fas fa-eye text-lg"></i>
+                            </button>
+                            
+                            <!-- زر الحذف (مخفي لمهام الطلبيات) -->
+                            {% if task.task_type != 'order' %}
+                            <button onclick="deleteTask({{ task.id }})" 
+                                    class="text-red-600 hover:text-red-800 dark:hover:text-red-400 transition-colors p-1 rounded hover:bg-red-100 dark:hover:bg-red-900"
+                                    title="حذف المهمة">
+                                <i class="fas fa-trash text-lg"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- حالة المهمة -->
+                    <div class="mt-2 flex items-center space-x-2 space-x-reverse">
+                        <span class="text-xs px-2 py-1 rounded-full 
+                            {% if task.status == 'completed' %}bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100
+                            {% elif task.status == 'in_progress' %}bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100
+                            {% elif task.status == 'suspended' %}bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100
+                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ 'مكتملة' if task.status == 'completed' else 'قيد التنفيذ' if task.status == 'in_progress' else 'معلقة' if task.status == 'suspended' else 'قيد الانتظار' }}
+                        </span>
+                        
+                        {% if task.notes %}
+                        <span class="text-xs text-gray-500 flex items-center cursor-help" title="{{ task.notes }}">
+                            <i class="fas fa-sticky-note ml-1"></i>
+                            ملاحظات
+                        </span>
+                        {% endif %}
+                        
+                        {% if task.waiting_approval %}
+                        <span class="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100">
+                            <i class="fas fa-clock ml-1"></i>
+                            بانتظار الموافقة
+                        </span>
+                        {% endif %}
+
+                        <!-- بادج نطاق المهمة -->
+                        <span class="px-2 py-1 rounded-full text-xs font-medium 
+                            {% if task.task_scope == 'system' %}bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100
+                            {% elif task.task_scope == 'accountability' %}bg-indigo-100 text-indigo-800 dark:bg-indigo-800 dark:text-indigo-100
+                            {% elif task.task_scope == 'worker' %}bg-teal-100 text-teal-800 dark:bg-teal-800 dark:text-teal-100
+                            {% elif task.task_scope == 'admin_management' %}bg-pink-100 text-pink-800 dark:bg-pink-800 dark:text-pink-100
+                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ 'نظام' if task.task_scope == 'system' else 'محاسبة' if task.task_scope == 'accountability' else 'عمال' if task.task_scope == 'worker' else 'أدمن' if task.task_scope == 'admin_management' else 'داخلية' }}
+                        </span>
+                    </div>
+
+                    <!-- قسم التحكم في واجهة الإدارة -->
+                    {% if task.waiting_approval %}
+                    <div class="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                <i class="fas fa-clock text-yellow-600 text-xl"></i>
+                                <div>
+                                    <h4 class="font-semibold text-yellow-800 dark:text-yellow-200">بانتظار موافقة الإدارة</h4>
+                                    <p class="text-yellow-700 dark:text-yellow-300 text-sm">تم إنهاء المهمة بانتظار مراجعتك</p>
+                                    {% if task.completion_notes %}
+                                    <p class="text-yellow-600 dark:text-yellow-400 mt-2 text-sm">
+                                        <strong>ملاحظات الإنهاء:</strong> {{ task.completion_notes }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="approveTask({{ task.id }})" 
+                                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 text-sm">
+                                    <i class="fas fa-check"></i>
+                                    موافقة
+                                </button>
+                                <button onclick="rejectTask({{ task.id }})" 
+                                        class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 text-sm">
+                                    <i class="fas fa-times"></i>
+                                    رفض
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- ترقيم الصفحات -->
+        <div class="flex justify-between items-center mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div class="text-sm text-gray-600 dark:text-gray-400">
+                عرض <span class="font-medium">{{ tasks|length }}</span> من أصل <span class="font-medium">{{ stats.total }}</span> مهمة
+            </div>
+            <div class="flex space-x-2 space-x-reverse">
+                <button class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50" disabled>
+                    السابق
+                </button>
+                <button class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm">
+                    التالي
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i class="fas fa-tasks text-4xl text-gray-400 mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">لا توجد مهام</h3>
+            <p class="text-gray-600 dark:text-gray-400 mb-6">لا توجد مهام تطابق معايير البحث الخاصة بك</p>
+            <div class="flex justify-center space-x-3 space-x-reverse">
+                <button onclick="showAddTaskModal()" class="btn-primary">
+                    <i class="fas fa-plus ml-2"></i>
+                    إضافة مهمة جديدة
+                </button>
+                <button onclick="generateAutoTasks()" class="btn-secondary">
+                    <i class="fas fa-robot ml-2"></i>
+                    توليد مهام تلقائية
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- نموذج إضافة/تعديل مهمة -->
+<div id="task-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white" id="modal-title">إضافة مهمة جديدة</h3>
+        </div>
+        
+        <form id="task-form" class="p-6">
+            <input type="hidden" id="task-id" name="task_id">
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">عنوان المهمة *</label>
+                    <input type="text" id="task-title" name="title" required 
+                           class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الوصف</label>
+                    <textarea id="task-description" name="description" rows="3"
+                              class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="وصف تفصيلي للمهمة..."></textarea>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الأولوية</label>
+                        <select id="task-priority" name="priority" 
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="low">منخفضة</option>
+                            <option value="medium" selected>متوسطة</option>
+                            <option value="high">عالية</option>
+                            <option value="critical">حرجة</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">النوع</label>
+                        <select id="task-type" name="task_type" 
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="general">عام</option>
+                            <option value="debt">ديون</option>
+                            <option value="order">طلبيات</option>
+                            <option value="worker">عمال</option>
+                            <option value="expense">مصاريف</option>
+                            <option value="system">نظام</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">نطاق المهمة</label>
+                        <select id="task-scope" name="task_scope" 
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="internal">داخلية</option>
+                            <option value="system">نظام</option>
+                            <option value="accountability">محاسبة</option>
+                            <option value="worker">عمال</option>
+                            <option value="admin_management">مهام الأدمن</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">تعيين إلى عامل</label>
+                        <select id="task-worker" name="worker_id" 
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">اختر العامل</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">تعيين إلى</label>
+                        <input type="text" id="task-assigned" name="assigned_to" 
+                               class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="اسم المستخدم أو الفريق">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">موعد التسليم</label>
+                        <input type="date" id="task-due-date" name="due_date" 
+                               class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ملاحظات إضافية</label>
+                    <textarea id="task-notes" name="notes" rows="2"
+                              class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="ملاحظات أو تعليمات إضافية..."></textarea>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 space-x-reverse mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="hideTaskModal()" class="btn-secondary">إلغاء</button>
+                <button type="submit" class="btn-primary" id="modal-submit-btn">إضافة المهمة</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- نموذج مهمة أدمن -->
+<div id="admin-task-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white">إنشاء مهمة أدمن جديدة</h3>
+        </div>
+        
+        <form id="admin-task-form" class="p-6">
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">عنوان المهمة *</label>
+                    <input type="text" name="title" required 
+                           class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الوصف</label>
+                    <textarea name="description" rows="3"
+                              class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="وصف تفصيلي للمهمة الإدارية..."></textarea>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الأولوية</label>
+                        <select name="priority" 
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="low">منخفضة</option>
+                            <option value="medium" selected>متوسطة</option>
+                            <option value="high">عالية</option>
+                            <option value="critical">حرجة</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">تعيين إلى أدمن</label>
+                        <select name="assigned_admin" required
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">اختر الأدمن</option>
+                            <!-- سيتم ملؤه بالجافاسكريبت -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">موعد التسليم</label>
+                        <input type="date" name="due_date" 
+                               class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">نطاق المهمة</label>
+                        <select name="task_scope" 
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="admin_management" selected>مهام الأدمن</option>
+                            <option value="internal">مهام داخلية</option>
+                            <option value="system">مهام نظام</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 space-x-reverse mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="hideAdminTaskModal()" class="btn-secondary">إلغاء</button>
+                <button type="submit" class="btn-primary">إنشاء المهمة</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- نموذج تفاصيل المهمة -->
+<div id="details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white" id="details-title">تفاصيل المهمة</h3>
+        </div>
+        
+        <div class="p-6 space-y-4" id="task-details-content">
+            <!-- سيتم ملؤه بالجافاسكريبت -->
+        </div>
+        
+        <div class="flex justify-end p-6 border-t border-gray-200 dark:border-gray-700">
+            <button onclick="hideDetailsModal()" class="btn-secondary">إغلاق</button>
+        </div>
+    </div>
+</div>
+
+<!-- نموذج إعادة تعيين المهمة -->
+<div id="reassign-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white">إعادة تعيين المهمة</h3>
+        </div>
+        
+        <form id="reassign-form" class="p-6">
+            <input type="hidden" id="reassign-task-id" name="task_id">
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">اختر العامل الجديد</label>
+                    <select id="reassign-worker" name="new_worker_id" required 
+                            class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">اختر العامل</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">سبب إعادة التعيين</label>
+                    <textarea id="reassign-reason" name="reason" rows="3" required
+                              class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="اذكر سبب إعادة التعيين..."></textarea>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 space-x-reverse mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="hideReassignModal()" class="btn-secondary">إلغاء</button>
+                <button type="submit" class="btn-primary">إعادة التعيين</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- نموذج إكمال المهمة مع الملاحظات -->
+<div id="completion-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white" id="completion-title">إكمال المهمة</h3>
+        </div>
+        
+        <form id="completion-form" class="p-6">
+            <input type="hidden" id="completion-task-id" name="task_id">
+            
+            <div class="space-y-4">
+                <div id="completion-task-info" class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <!-- سيتم ملؤه بالجافاسكريبت -->
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        ملاحظات الإنجاز (اختياري)
+                    </label>
+                    <textarea id="completion-notes" name="completion_notes" rows="4"
+                              class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="اكتب ملاحظات عن إنجاز المهمة..."></textarea>
+                </div>
+                
+                <div id="approval-section" class="hidden">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="require-approval" name="require_approval" checked
+                               class="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                        <label for="require-approval" class="mr-2 text-sm text-gray-700 dark:text-gray-300">
+                            تتطلب موافقة الإدارة
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        سيتم إرسال المهمة للإدارة للمراجعة قبل إغلاقها نهائياً
+                    </p>
+                </div>
+                
+                <div id="auto-approve-section" class="hidden">
+                    <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-600 ml-2"></i>
+                            <span class="text-green-800 dark:text-green-200 text-sm">
+                                يمكنك الموافقة تلقائياً على المهمة
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 space-x-reverse mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="hideCompletionModal()" class="btn-secondary">إلغاء</button>
+                <button type="submit" class="btn-success" id="completion-submit-btn">
+                    <i class="fas fa-check ml-2"></i>
+                    تأكيد الإكمال
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// ==========================================
+// 🎯 المتغيرات العامة والإعدادات الأولية
+// ==========================================
+
+let currentFilters = {
+    status: 'all',
+    priority: 'all',
+    type: 'all',
+    scope: 'all',
+    admin: 'all',
+    date_filter: 'all'
+};
+
+// ==========================================
+// 🎯 دوال إدارة المهام الأساسية
+// ==========================================
+
+/**
+ * قبول مهمة الأدمن وبدء التنفيذ
+ */
+async function acceptAdminTask(taskId) {
+    try {
+        showToast('جاري قبول المهمة وبدء التنفيذ...', 'info');
+        
+        const response = await fetch(`/api/admin/tasks/${taskId}/accept`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('تم قبول المهمة وبدء التنفيذ بنجاح', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (error) {
+        showToast('حدث خطأ أثناء قبول المهمة', 'error');
+    }
+}
+
+/**
+ * تبديل حالة المهمة
+ */
+async function toggleTaskStatus(taskId, completed) {
+    try {
+        const newStatus = completed ? 'completed' : 'pending';
+        const response = await fetch(`/api/tasks/${taskId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(`تم ${completed ? 'إكمال' : 'إعادة فتح'} المهمة`, 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (error) {
+        showToast('حدث خطأ أثناء تحديث حالة المهمة', 'error');
+    }
+}
+
+/**
+ * بدء تنفيذ المهمة
+ */
+async function startTask(taskId) {
+    try {
+        showToast('جاري بدء المهمة...', 'info');
+        
+        const response = await fetch(`/api/tasks/${taskId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ status: 'in_progress' })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('تم بدء تنفيذ المهمة', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (error) {
+        showToast('حدث خطأ أثناء بدء المهمة', 'error');
+    }
+}
+
+/**
+ * إكمال المهمة
+ */
+async function completeTask(taskId) {
+    await showCompletionModal(taskId);
+}
+
+/**
+ * تعليق المهمة
+ */
+async function suspendTask(taskId) {
+    const reason = prompt('يرجى كتابة سبب التعليق:');
+    if (reason) {
+        try {
+            showToast('جاري تعليق المهمة...', 'info');
+            
+            const response = await fetch(`/api/admin/tasks/${taskId}/suspend`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ reason: reason })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast('تم تعليق المهمة بنجاح', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast(data.error, 'error');
+            }
+        } catch (error) {
+            showToast('حدث خطأ أثناء تعليق المهمة', 'error');
+        }
+    }
+}
+
+/**
+ * استئناف المهمة
+ */
+async function resumeTask(taskId) {
+    try {
+        showToast('جاري استئناف المهمة...', 'info');
+        
+        const response = await fetch(`/api/admin/tasks/${taskId}/resume`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('تم استئناف المهمة بنجاح', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (error) {
+        showToast('حدث خطأ أثناء استئناف المهمة', 'error');
+    }
+}
+
+/**
+ * موافقة الإدارة على المهمة
+ */
+async function approveTask(taskId) {
+    if (confirm('هل تريد الموافقة على هذه المهمة وإغلاقها نهائياً؟')) {
+        try {
+            showToast('جاري الموافقة على المهمة...', 'info');
+            
+            const response = await fetch(`/api/admin/tasks/${taskId}/approve`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast('تمت الموافقة على المهمة بنجاح', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast(data.error, 'error');
+            }
+        } catch (error) {
+            showToast('حدث خطأ أثناء الموافقة على المهمة', 'error');
+        }
+    }
+}
+
+/**
+ * رفض المهمة وإعادتها للعامل
+ */
+async function rejectTask(taskId) {
+    const reason = prompt('يرجى كتابة سبب الرفض:');
+    if (reason) {
+        try {
+            showToast('جاري إعادة المهمة للعامل...', 'info');
+            
+            const response = await fetch(`/api/admin/tasks/${taskId}/reject`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ reason: reason })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast('تم إعادة المهمة للعامل بنجاح', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast(data.error, 'error');
+            }
+        } catch (error) {
+            showToast('حدث خطأ أثناء إعادة المهمة', 'error');
+        }
+    }
+}
+
+/**
+ * إعادة تعيين المهمة
+ */
+async function reassignTask(taskId) {
+    document.getElementById('reassign-task-id').value = taskId;
+    await loadWorkersForReassign();
+    document.getElementById('reassign-modal').classList.remove('hidden');
+}
+
+/**
+ * تعديل المهمة
+ */
+async function editTask(taskId) {
+    showEditTaskModal(taskId);
+}
+
+/**
+ * حذف المهمة
+ */
+async function deleteTask(taskId) {
+    if (confirm('هل أنت متأكد من حذف هذه المهمة؟')) {
+        try {
+            const response = await fetch(`/api/tasks/${taskId}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast('تم حذف المهمة بنجاح', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast(data.error, 'error');
+            }
+        } catch (error) {
+            showToast('حدث خطأ أثناء حذف المهمة', 'error');
+        }
+    }
+}
+
+// ==========================================
+// 🎯 دوال النماذج والإدارة
+// ==========================================
+
+/**
+ * عرض نموذج إضافة مهمة
+ */
+function showAddTaskModal() {
+    document.getElementById('modal-title').textContent = 'إضافة مهمة جديدة';
+    document.getElementById('modal-submit-btn').textContent = 'إضافة المهمة';
+    document.getElementById('task-form').reset();
+    document.getElementById('task-id').value = '';
+    loadWorkersForSelect();
+    document.getElementById('task-modal').classList.remove('hidden');
+}
+
+/**
+ * عرض نموذج تعديل مهمة
+ */
+function showEditTaskModal(taskId) {
+    const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (taskElement) {
+        document.getElementById('modal-title').textContent = 'تعديل المهمة';
+        document.getElementById('modal-submit-btn').textContent = 'حفظ التعديلات';
+        document.getElementById('task-id').value = taskId;
+        
+        // في التطبيق الحقيقي، ستجلب البيانات من الخادم
+        document.getElementById('task-title').value = taskElement.querySelector('h3').textContent.trim();
+        
+        loadWorkersForSelect();
+        document.getElementById('task-modal').classList.remove('hidden');
+    }
+}
+
+/**
+ * إخفاء نموذج المهمة
+ */
+function hideTaskModal() {
+    document.getElementById('task-modal').classList.add('hidden');
+}
+
+/**
+ * إنشاء مهمة أدمن
+ */
+function createAdminTask() {
+    loadAdminsForSelect();
+    const modal = document.getElementById('admin-task-modal');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * إخفاء نموذج مهمة الأدمن
+ */
+function hideAdminTaskModal() {
+    const modal = document.getElementById('admin-task-modal');
+    modal.classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+/**
+ * إخفاء نموذج إعادة التعيين
+ */
+function hideReassignModal() {
+    document.getElementById('reassign-modal').classList.add('hidden');
+}
+
+/**
+ * عرض تفاصيل المهمة
+ */
+function showTaskDetails(taskId) {
+    const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (taskElement) {
+        const title = taskElement.querySelector('h3').textContent.trim();
+        const description = taskElement.querySelector('p')?.textContent || 'لا يوجد وصف';
+        const priority = taskElement.getAttribute('data-priority');
+        const status = taskElement.getAttribute('data-status');
+        const type = taskElement.getAttribute('data-type');
+        const scope = taskElement.getAttribute('data-scope');
+        const dueDate = taskElement.getAttribute('data-due-date');
+        
+        const detailsContent = `
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">العنوان</label>
+                    <p class="text-gray-900 dark:text-white font-semibold">${title}</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الوصف</label>
+                    <p class="text-gray-600 dark:text-gray-400">${description}</p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الأولوية</label>
+                        <span class="px-2 py-1 rounded-full text-xs font-medium 
+                            ${getPriorityBadgeClass(priority)}">
+                            ${getPriorityText(priority)}
+                        </span>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الحالة</label>
+                        <span class="px-2 py-1 rounded-full text-xs font-medium 
+                            ${getStatusBadgeClass(status)}">
+                            ${getStatusText(status)}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">النوع</label>
+                        <p class="text-gray-600 dark:text-gray-400">${getTypeText(type)}</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">النطاق</label>
+                        <p class="text-gray-600 dark:text-gray-400">${getScopeText(scope)}</p>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">موعد التسليم</label>
+                    <p class="text-gray-600 dark:text-gray-400">${dueDate || 'غير محدد'}</p>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('details-title').textContent = `تفاصيل المهمة #${taskId}`;
+        document.getElementById('task-details-content').innerHTML = detailsContent;
+        document.getElementById('details-modal').classList.remove('hidden');
+    }
+}
+
+/**
+ * إخفاء نموذج التفاصيل
+ */
+function hideDetailsModal() {
+    document.getElementById('details-modal').classList.add('hidden');
+}
+
+/**
+ * عرض نموذج إكمال المهمة
+ */
+async function showCompletionModal(taskId) {
+    try {
+        showProgress('جاري تحميل بيانات المهمة...', 'التحقق من الصلاحيات');
+        
+        const response = await fetch(`/api/tasks/${taskId}/completion_data`);
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('completion-task-id').value = taskId;
+            
+            // تعبئة معلومات المهمة
+            const taskInfo = document.getElementById('completion-task-info');
+            taskInfo.innerHTML = `
+                <div class="space-y-2">
+                    <h4 class="font-semibold text-gray-900 dark:text-white">${data.task.title}</h4>
+                    ${data.task.description ? `<p class="text-sm text-gray-600 dark:text-gray-400">${data.task.description}</p>` : ''}
+                    ${data.task.assigned_to ? `<p class="text-xs text-gray-500 dark:text-gray-400">المعينة لـ: ${data.task.assigned_to}</p>` : ''}
+                    ${data.task.related_entity_info ? `<p class="text-xs text-blue-600 dark:text-blue-400">${data.task.related_entity_info}</p>` : ''}
+                </div>
+            `;
+            
+            // إظهار/إخفاء أقسام الموافقة
+            const approvalSection = document.getElementById('approval-section');
+            const autoApproveSection = document.getElementById('auto-approve-section');
+            
+            if (data.user_type === 'admin') {
+                approvalSection.classList.add('hidden');
+                autoApproveSection.classList.remove('hidden');
+            } else {
+                approvalSection.classList.remove('hidden');
+                autoApproveSection.classList.add('hidden');
+            }
+            
+            // إعادة تعيين النموذج
+            document.getElementById('completion-notes').value = '';
+            if (document.getElementById('require-approval')) {
+                document.getElementById('require-approval').checked = true;
+            }
+            
+            hideProgress();
+            document.getElementById('completion-modal').classList.remove('hidden');
+        } else {
+            hideProgress();
+            showToast(data.error, 'error');
+        }
+    } catch (error) {
+        hideProgress();
+        showToast('حدث خطأ أثناء تحميل بيانات المهمة', 'error');
+    }
+}
+
+/**
+ * إخفاء نموذج الإكمال
+ */
+function hideCompletionModal() {
+    document.getElementById('completion-modal').classList.add('hidden');
+}
+
+// ==========================================
+// 🎯 دوال الفلترة والبحث
+// ==========================================
+
+/**
+ * فلترة المهام
+ */
+function filterTasks() {
+    const status = document.getElementById('status-filter').value;
+    const priority = document.getElementById('priority-filter').value;
+    const type = document.getElementById('type-filter').value;
+    const scope = document.getElementById('scope-filter').value;
+    const admin = document.getElementById('admin-filter')?.value || 'all';
+    const dateFilter = document.getElementById('date-filter').value;
+    
+    let url = '/tasks/with_scopes?';
+    let params = [];
+    
+    if (status !== 'all') params.push(`status=${status}`);
+    if (priority !== 'all') params.push(`priority=${priority}`);
+    if (type !== 'all') params.push(`type=${type}`);
+    if (scope !== 'all') params.push(`scope=${scope}`);
+    if (admin !== 'all') params.push(`admin=${admin}`);
+    if (dateFilter !== 'all') params.push(`date_filter=${dateFilter}`);
+    
+    // إضافة معلمة للتحكم في التحديث
+    params.push(`refresh=true`);
+    
+    if (params.length > 0) {
+        url += params.join('&');
+    }
+    
+    window.location.href = url;
+}
+
+/**
+ * فلترة بالحالة
+ */
+function filterByStatus(status) {
+    document.getElementById('status-filter').value = status;
+    filterTasks();
+}
+
+/**
+ * فلترة بالأولوية
+ */
+function filterByPriority(priority) {
+    document.getElementById('priority-filter').value = priority;
+    filterTasks();
+}
+
+/**
+ * إعادة تعيين الفلاتر
+ */
+function resetFilters() {
+    document.getElementById('status-filter').value = 'all';
+    document.getElementById('priority-filter').value = 'all';
+    document.getElementById('type-filter').value = 'all';
+    document.getElementById('scope-filter').value = 'all';
+    if (document.getElementById('admin-filter')) {
+        document.getElementById('admin-filter').value = 'all';
+    }
+    document.getElementById('date-filter').value = 'all';
+    document.getElementById('task-search').value = '';
+    filterTasks();
+}
+
+/**
+ * بحث في المهام
+ */
+function searchTasks() {
+    const searchTerm = document.getElementById('task-search').value.toLowerCase();
+    const taskItems = document.querySelectorAll('.task-item');
+    let visibleCount = 0;
+    
+    taskItems.forEach(item => {
+        const searchText = item.getAttribute('data-search-text');
+        if (searchText.includes(searchTerm)) {
+            item.style.display = 'flex';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// ==========================================
+// 🎯 دوال التحميل والتهيئة
+// ==========================================
+
+/**
+ * تحميل قائمة العمال للنماذج
+ */
+async function loadWorkersForSelect() {
+    try {
+        const response = await fetch('/api/workers/for_tasks');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('task-worker');
+            if (select) {
+                select.innerHTML = '<option value="">اختر العامل</option>';
+                
+                data.workers.forEach(worker => {
+                    const option = document.createElement('option');
+                    option.value = worker.id;
+                    option.textContent = `${worker.name} - ${worker.phone}`;
+                    select.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل قائمة العمال:', error);
+    }
+}
+
+/**
+ * تحميل قائمة العمال لإعادة التعيين
+ */
+async function loadWorkersForReassign() {
+    try {
+        const response = await fetch('/api/workers/for_tasks');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('reassign-worker');
+            if (select) {
+                select.innerHTML = '<option value="">اختر العامل</option>';
+                
+                data.workers.forEach(worker => {
+                    const option = document.createElement('option');
+                    option.value = worker.id;
+                    option.textContent = `${worker.name} - ${worker.phone}`;
+                    select.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل قائمة العمال:', error);
+    }
+}
+
+/**
+ * تحميل قائمة الأدمن
+ */
+async function loadAdminsForSelect() {
+    try {
+        const response = await fetch('/api/admin/users');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.querySelector('select[name="assigned_admin"]');
+            if (select) {
+                select.innerHTML = '<option value="">اختر الأدمن</option>';
+                
+                data.admins.forEach(admin => {
+                    const option = document.createElement('option');
+                    option.value = admin.username;
+                    option.textContent = `${admin.full_name} (${admin.role})`;
+                    select.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('❌ خطأ في تحميل قائمة الأدمن:', error);
+    }
+}
+
+/**
+ * تحميل فلاتر الأدمن
+ */
+async function loadAdminFilters() {
+    try {
+        const response = await fetch('/api/admin/users');
+        const data = await response.json();
+        
+        if (data.success) {
+            const adminFilter = document.getElementById('admin-filter');
+            if (adminFilter) {
+                // حفظ القيمة الحالية
+                const currentValue = adminFilter.value;
+                
+                adminFilter.innerHTML = '<option value="all">جميع الأدمن</option>';
+                
+                data.admins.forEach(admin => {
+                    const option = document.createElement('option');
+                    option.value = admin.username;
+                    option.textContent = admin.full_name;
+                    adminFilter.appendChild(option);
+                });
+                
+                // استعادة القيمة السابقة إذا كانت موجودة
+                if (currentValue && currentValue !== 'all') {
+                    adminFilter.value = currentValue;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('❌ خطأ في تحميل فلاتر الأدمن:', error);
+    }
+}
+
+/**
+ * تحميل فلاتر الأدمن المعينين
+ */
+async function loadAdminAssignmentFilters() {
+    try {
+        const response = await fetch('/api/tasks/assigned_admins');
+        const data = await response.json();
+        
+        if (data.success) {
+            const adminFilter = document.getElementById('admin-filter');
+            if (adminFilter) {
+                const currentValue = adminFilter.value;
+                
+                adminFilter.innerHTML = '<option value="all">جميع الأدمن</option>';
+                
+                data.admins.forEach(admin => {
+                    const option = document.createElement('option');
+                    option.value = admin.username;
+                    option.textContent = admin.full_name || admin.username;
+                    adminFilter.appendChild(option);
+                });
+                
+                // استعادة القيمة السابقة
+                if (currentValue && currentValue !== 'all') {
+                    adminFilter.value = currentValue;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('❌ خطأ في تحميل فلاتر الأدمن المعينين:', error);
+    }
+}
+
+// ==========================================
+// 🎯 دوال المساعدة
+// ==========================================
+
+/**
+ * تحديث الوقت الحي
+ */
+function updateLiveTime() {
+    const now = new Date();
+    const timeString = now.toLocaleDateString('ar-EG', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    const timeElement = document.getElementById('tasks-live-time');
+    if (timeElement) {
+        timeElement.textContent = timeString;
+    }
+}
+
+/**
+ * دوال مساعدة للنصوص
+ */
+function getPriorityText(priority) {
+    const priorities = {
+        'critical': 'حرجة',
+        'high': 'عالية', 
+        'medium': 'متوسطة',
+        'low': 'منخفضة'
+    };
+    return priorities[priority] || priority;
+}
+
+function getStatusText(status) {
+    const statuses = {
+        'completed': 'مكتملة',
+        'in_progress': 'قيد التنفيذ',
+        'pending': 'قيد الانتظار',
+        'suspended': 'معلقة'
+    };
+    return statuses[status] || status;
+}
+
+function getTypeText(type) {
+    const types = {
+        'debt': 'ديون',
+        'order': 'طلبيات',
+        'worker': 'عمال',
+        'expense': 'مصاريف',
+        'system': 'نظام',
+        'general': 'عام'
+    };
+    return types[type] || type;
+}
+
+function getScopeText(scope) {
+    const scopes = {
+        'system': 'نظام',
+        'accountability': 'محاسبة',
+        'worker': 'عمال',
+        'admin_management': 'أدمن',
+        'internal': 'داخلية'
+    };
+    return scopes[scope] || scope;
+}
+
+function getPriorityBadgeClass(priority) {
+    const classes = {
+        'critical': 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100',
+        'high': 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100',
+        'medium': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100',
+        'low': 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'
+    };
+    return classes[priority] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+}
+
+function getStatusBadgeClass(status) {
+    const classes = {
+        'completed': 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100',
+        'in_progress': 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100',
+        'suspended': 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100',
+        'pending': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+    };
+    return classes[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+}
+
+// ==========================================
+// 🎯 دوال الإشعارات والتحديثات
+// ==========================================
+
+/**
+ * توليد مهام تلقائية
+ */
+async function generateAutoTasks() {
+    const btn = document.getElementById('generate-tasks-btn');
+    const originalText = btn.innerHTML;
+    
+    try {
+        showProgress('جاري توليد المهام التلقائية...', 'فحص البيانات وتحديث المهام المطلوبة');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التوليد...';
+        
+        const response = await fetch('/api/tasks/generate', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        hideProgress();
+        
+        if (data.success) {
+            const count = data.tasks_created || 0;
+            if (count > 0) {
+                showToast(`تم توليد ${count} مهمة تلقائية جديدة`, 'success');
+                // إظهار العداد المؤقت
+                const counter = document.getElementById('new-tasks-count');
+                counter.textContent = count;
+                counter.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    counter.classList.add('hidden');
+                }, 3000);
+            } else {
+                showToast('لا توجد مهام جديدة تحتاج إلى توليد', 'info');
+            }
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            showToast(data.error, 'error');
+        }
+        
+    } catch (error) {
+        hideProgress();
+        showToast('حدث خطأ أثناء توليد المهام', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+/**
+ * أرشفة المهام المكتملة
+ */
+async function archiveCompletedTasks() {
+    if (confirm('هل تريد أرشفة جميع المهام المكتملة؟')) {
+        try {
+            const response = await fetch('/api/tasks/archive_completed', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast(`تم أرشفة ${result.archived_count} مهمة`, 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast(result.error, 'error');
+            }
+        } catch (error) {
+            showToast('حدث خطأ أثناء الأرشفة', 'error');
+        }
+    }
+}
+
+/**
+ * تحديث الصفحة
+ */
+function refreshTasks() {
+    showProgress('جاري تحديث البيانات...', 'تحميل أحدث المهام');
+    setTimeout(() => {
+        window.location.reload();
+    }, 500);
+}
+
+/**
+ * إدارة مؤشر التقدم
+ */
+function showProgress(text, details = '') {
+    const indicator = document.getElementById('progress-indicator');
+    const progressText = document.getElementById('progress-text');
+    const progressDetails = document.getElementById('progress-details');
+    
+    if (progressText) progressText.textContent = text;
+    if (progressDetails) progressDetails.textContent = details;
+    if (indicator) indicator.classList.remove('hidden');
+}
+
+function hideProgress() {
+    const indicator = document.getElementById('progress-indicator');
+    if (indicator) indicator.classList.add('hidden');
+}
+
+/**
+ * عرض الإشعارات
+ */
+function showToast(message, type = 'success') {
+    // تنفيذ مبسط للإشعارات
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg text-white max-w-sm transform transition-transform duration-300 translate-x-full ${
+        type === 'success' ? 'bg-green-500' :
+        type === 'error' ? 'bg-red-500' :
+        type === 'warning' ? 'bg-orange-500' : 'bg-blue-500'
+    }`;
+    
+    toast.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} ml-2"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // إظهار الرسالة
+    setTimeout(() => {
+        toast.classList.remove('translate-x-full');
+        toast.classList.add('translate-x-0');
+    }, 100);
+    
+    // إخفاء الرسالة بعد 3 ثوان
+    setTimeout(() => {
+        toast.classList.remove('translate-x-0');
+        toast.classList.add('translate-x-full');
+        setTimeout(() => {
+            if (document.body.contains(toast)) {
+                document.body.removeChild(toast);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// ==========================================
+// 🎯 معالجات النماذج
+// ==========================================
+
+/**
+ * معالج نموذج إضافة/تعديل المهمة
+ */
+document.getElementById('task-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const taskId = document.getElementById('task-id').value;
+    const url = taskId ? `/api/tasks/${taskId}` : '/tasks/add';
+    const method = taskId ? 'PUT' : 'POST';
+    
+    try {
+        const response = await fetch(url, {
+            method: method,
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(taskId ? 'تم تعديل المهمة بنجاح' : 'تم إضافة المهمة بنجاح', 'success');
+            hideTaskModal();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (error) {
+        showToast('حدث خطأ أثناء حفظ المهمة', 'error');
+    }
+});
+
+/**
+ * معالج نموذج مهمة الأدمن
+ */
+document.getElementById('admin-task-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        title: formData.get('title'),
+        description: formData.get('description'),
+        priority: formData.get('priority'),
+        assigned_admin: formData.get('assigned_admin'),
+        due_date: formData.get('due_date'),
+        task_scope: formData.get('task_scope') || 'admin_management'
+    };
+    
+    try {
+        const response = await fetch('/api/admin/tasks/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('تم إنشاء المهمة بنجاح', 'success');
+            hideAdminTaskModal();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(result.error, 'error');
+        }
+    } catch (error) {
+        showToast('حدث خطأ أثناء إنشاء المهمة', 'error');
+    }
+});
+
+/**
+ * معالج نموذج إعادة التعيين
+ */
+document.getElementById('reassign-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const taskId = formData.get('task_id');
+    const data = {
+        new_worker_id: parseInt(formData.get('new_worker_id')),
+        reason: formData.get('reason')
+    };
+    
+    try {
+        const response = await fetch(`/api/admin/tasks/${taskId}/reassign`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('تم إعادة تعيين المهمة بنجاح', 'success');
+            hideReassignModal();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(result.error, 'error');
+        }
+    } catch (error) {
+        showToast('حدث خطأ أثناء إعادة التعيين', 'error');
+    }
+});
+
+/**
+ * معالج نموذج الإكمال
+ */
+document.getElementById('completion-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const taskId = document.getElementById('completion-task-id').value;
+    const completionNotes = document.getElementById('completion-notes').value;
+    const requireApproval = document.getElementById('require-approval')?.checked ?? true;
+    
+    const data = {
+        completion_notes: completionNotes,
+        require_approval: requireApproval
+    };
+    
+    try {
+        showProgress('جاري إكمال المهمة...', 'حفظ البيانات وإرسال الإشعارات');
+        
+        const response = await fetch(`/api/tasks/${taskId}/complete_enhanced`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        hideProgress();
+        
+        if (result.success) {
+            let successMessage = result.message;
+            
+            if (result.requires_admin_approval) {
+                successMessage += ' 📨 تم إرسال إشعار للإدارة';
+            }
+            
+            showToast(successMessage, 'success');
+            hideCompletionModal();
+            
+            // تحديث الصفحة بعد ثانيتين
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            showToast(result.error, 'error');
+        }
+    } catch (error) {
+        hideProgress();
+        showToast('حدث خطأ أثناء إكمال المهمة', 'error');
+    }
+});
+
+// ==========================================
+// 🎯 التهيئة والأحداث
+// ==========================================
+
+/**
+ * تطبيق الفلاتر الحالية
+ */
+function applyCurrentFilters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // تحديث قيم الفلاتر من URL
+    const filters = ['status', 'priority', 'type', 'scope', 'admin', 'date_filter'];
+    filters.forEach(filter => {
+        const value = urlParams.get(filter);
+        const element = document.getElementById(`${filter}-filter`);
+        if (element && value) {
+            element.value = value;
+        }
+    });
+}
+
+/**
+ * تحميل الإشعارات غير المقروءة
+ */
+async function loadUnreadNotifications() {
+    try {
+        const response = await fetch('/api/notifications/unread');
+        const data = await response.json();
+        
+        if (data.success && data.unread_count > 0) {
+            // تحديث عداد الإشعارات في الشريط العلوي (إذا كان موجوداً)
+            const notificationBadge = document.getElementById('notification-badge');
+            if (notificationBadge) {
+                notificationBadge.textContent = data.unread_count;
+                notificationBadge.classList.remove('hidden');
+            }
+            
+            // إظهار إشعار بالرسائل الجديدة
+            if (data.unread_count > 0) {
+                showToast(`لديك ${data.unread_count} إشعار غير مقروء`, 'info');
+            }
+        }
+    } catch (error) {
+        console.error('❌ خطأ في تحميل الإشعارات:', error);
+    }
+}
+
+/**
+ * تحميل الإحصائيات الحية
+ */
+async function loadLiveStats() {
+    try {
+        const response = await fetch('/api/tasks/stats');
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('الإحصائيات المحدثة:', data.stats);
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل الإحصائيات:', error);
+    }
+}
+
+/**
+ * تهيئة الصفحة
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    // التهيئة الأساسية
+    updateLiveTime();
+    setInterval(updateLiveTime, 60000);
+    
+    // تحميل الإشعارات
+    loadUnreadNotifications();
+    
+    // تحميل الفلاتر
+    loadAdminsForSelect();
+    loadAdminFilters();
+    loadAdminAssignmentFilters();
+    
+    // تطبيق الفلاتر الحالية
+    applyCurrentFilters();
+    
+    // إضافة تأثيرات للعناصر
+    const taskItems = document.querySelectorAll('.task-item');
+    taskItems.forEach(item => {
+        item.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+    
+    // تحديث الإشعارات كل دقيقة
+    setInterval(loadUnreadNotifications, 60000);
+    
+    // إضافة حدث لإغلاق النافذة عند النقر خارجها
+    const adminModal = document.getElementById('admin-task-modal');
+    if (adminModal) {
+        adminModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideAdminTaskModal();
+            }
+        });
+    }
+    
+    // إضافة تأثيرات تحميل
+    const loaders = document.querySelectorAll('.loading-indicator');
+    loaders.forEach(loader => {
+        loader.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> جاري التحميل...';
+    });
+});
+</script>
+
+<style>
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.task-item {
+    transition: all 0.3s ease;
+}
+
+.task-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* تخصيص شريط التمرير */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* تأثيرات للوضع الداكن */
+@media (prefers-color-scheme: dark) {
+    ::-webkit-scrollbar-track {
+        background: #374151;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #6b7280;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+    }
+}
+
+/* تحسينات للجوال */
+@media (max-width: 768px) {
+    .task-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .task-item > div:first-child {
+        margin-bottom: 10px;
+    }
+    
+    .flex-wrap {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .flex-wrap > div:first-child {
+        order: 2;
+    }
+    
+    .flex-wrap > div:last-child {
+        order: 1;
+    }
+}
+
+/* تأثيرات للعناصر التفاعلية */
+.btn-primary, .btn-secondary, .btn-success, .btn-warning, .btn-info {
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover, .btn-secondary:hover, .btn-success:hover, .btn-warning:hover, .btn-info:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* أزرار إضافية */
+.btn-warning {
+    background-color: #f59e0b;
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: #d97706;
+}
+
+.btn-info {
+    background-color: #06b6d4;
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: #0891b2;
+}
+
+/* تحسينات للوضع الداكن */
+.dark .card {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+.dark .border-gray-200 {
+    border-color: #374151;
+}
+
+.dark .text-gray-600 {
+    color: #d1d5db;
+}
+
+.dark .text-gray-400 {
+    color: #9ca3af;
+}
+
+/* تحسينات للرسومات */
+.task-item {
+    position: relative;
+}
+
+.task-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: transparent;
+    transition: background-color 0.3s ease;
+}
+
+.task-item:hover::before {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* أنيميشن للعناصر الجديدة */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.task-item {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* تحسينات للوضع المحمول */
+@media (max-width: 640px) {
+    .grid-cols-2 {
+        grid-template-columns: 1fr;
+    }
+    
+    .flex-col-mobile {
+        flex-direction: column;
+    }
+    
+    .space-x-reverse-mobile {
+        margin-right: 0;
+        margin-left: 0;
+    }
+}
+
+/* تحسينات لنموذج الإكمال */
+#completion-modal {
+    animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* تحسينات للإشعارات */
+.notification-badge {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* تحسينات للوضع الداكن */
+.dark #completion-modal {
+    background: #1f2937;
+    border: 1px solid #374151;
+}
+
+.dark #completion-task-info {
+    background: #374151;
+    border: 1px solid #4b5563;
+}
+
+/* تخصيصات للمهام الخاصة */
+.task-order-worker {
+    opacity: 0.8;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+.dark .task-order-worker {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+}
+
+.task-admin-management {
+    border-left: 4px solid #ec4899;
+}
+
+.dark .task-admin-management {
+    border-left: 4px solid #db2777;
+}
+
+/* تحسينات للاستجابة */
+@media (max-width: 1024px) {
+    .grid-cols-6 {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .grid-cols-6 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .grid-cols-6 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* تحسينات للنصوص العربية */
+.rtl-support {
+    direction: rtl;
+    text-align: right;
+}
+
+/* تحسينات للأيقونات */
+.icon-spin {
+    animation: icon-spin 2s infinite linear;
+}
+
+@keyframes icon-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* تحسينات للظلال */
+.shadow-custom {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* تحسينات للخطوط */
+.font-arabic {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* تحسينات للتفاعلات */
+.interactive-element {
+    cursor: pointer;
+    user-select: none;
+}
+
+.interactive-element:active {
+    transform: scale(0.98);
+}
+
+/* تحسينات للعناوين */
+.section-title {
+    position: relative;
+    padding-right: 1.5rem;
+}
+
+.section-title::before {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 2px;
+}
+</style>
+{% endblock %}

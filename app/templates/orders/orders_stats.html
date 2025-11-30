@@ -1,0 +1,398 @@
+<!-- ======================= -->
+<!-- 📊 STATISTICS CARDS - COMPLETE SYSTEM -->
+<!-- ======================= -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3 md:gap-4 mb-6">
+    <!-- Total Orders -->
+    <div class="card p-3 md:p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+      <div class="flex items-center justify-between">
+        <div class="flex-1">
+          <p class="text-xs md:text-sm opacity-90">إجمالي الطلبيات</p>
+          <p class="text-xl md:text-2xl font-bold">{{ orders|length }}</p>
+          <p class="text-xs opacity-80 mt-1 hidden md:block">جميع الطلبيات</p>
+        </div>
+        <div class="relative">
+          <i class="fas fa-box text-lg md:text-2xl opacity-80" aria-hidden="true"></i>
+          <div class="absolute -top-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-blue-300 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+      <div class="mt-2 md:mt-3 pt-2 border-t border-blue-400 border-opacity-30">
+        <div class="flex justify-between text-xs">
+          <span>نشطة: {{ orders|selectattr('is_paid', 'equalto', false)|list|length }}</span>
+          <span>مكتملة: {{ orders|selectattr('is_paid', 'equalto', true)|list|length }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Total Amount -->
+    <div class="card p-3 md:p-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+      <div class="flex items-center justify-between">
+        <div class="flex-1">
+          <p class="text-xs md:text-sm opacity-90">الإجمالي</p>
+          <p class="text-xl md:text-2xl font-bold">{{ "%.0f"|format(orders|sum(attribute='total')) }} دج</p>
+          <p class="text-xs opacity-80 mt-1 hidden md:block">قيمة جميع الطلبيات</p>
+        </div>
+        <div class="relative">
+          <i class="fas fa-money-bill-wave text-lg md:text-2xl opacity-80" aria-hidden="true"></i>
+          <div class="absolute -top-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-purple-300 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+      <div class="mt-2 md:mt-3 pt-2 border-t border-purple-400 border-opacity-30">
+        <div class="text-xs">
+          <span>متوسط: {{ "%.0f"|format((orders|sum(attribute='total') / orders|length) if orders|length > 0 else 0) }} دج/طلب</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Total Costs -->
+    <div class="card p-3 md:p-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+        <div class="flex items-center justify-between">
+            <div class="flex-1">
+                <p class="text-xs md:text-sm opacity-90">إجمالي التكاليف</p>
+                <p class="text-xl md:text-2xl font-bold" id="totalCombinedCostDisplay">{{ "%.0f"|format(orders|sum(attribute='total_costs')) }} دج</p>
+                <p class="text-xs opacity-80 mt-1 hidden md:block">التكاليف الإجمالية</p>
+            </div>
+            <div class="relative">
+                <i class="fas fa-receipt text-lg md:text-2xl opacity-80" aria-hidden="true"></i>
+                <div class="absolute -top-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-red-300 rounded-full animate-pulse"></div>
+            </div>
+        </div>
+        <div class="mt-2 md:mt-3 pt-2 border-t border-red-400 border-opacity-30">
+            <div class="flex justify-between text-xs">
+                <span>مصاريف: <span id="totalPurchasesDisplay">0</span> دج</span>
+                <span>نقل: <span id="totalTransportDisplay">0</span> دج</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Healthy Orders -->
+    <div class="card p-3 md:p-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+      <div class="flex items-center justify-between">
+        <div class="flex-1">
+          <p class="text-xs md:text-sm opacity-90">طلبيات سليمة</p>
+          <p class="text-xl md:text-2xl font-bold" id="healthyOrdersCount">0</p>
+          <p class="text-xs opacity-80 mt-1 hidden md:block">بدون ديون</p>
+        </div>
+        <div class="relative">
+          <i class="fas fa-check-circle text-lg md:text-2xl opacity-80" aria-hidden="true"></i>
+          <div class="absolute -top-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-green-300 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+      <div class="mt-2 md:mt-3 pt-2 border-t border-green-400 border-opacity-30">
+        <div class="text-xs" id="healthyPercentage">
+          <span>نسبة الصحة: 0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Orders with Debts -->
+    <div class="card p-3 md:p-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer" 
+         onclick="showOrdersWithDebts()" 
+         id="ordersDebtsCard">
+      <div class="flex items-center justify-between">
+        <div class="flex-1">
+          <p class="text-xs md:text-sm opacity-90">طلبيات بها ديون</p>
+          <p class="text-xl md:text-2xl font-bold" id="ordersDebtsTotal">0 دج</p>
+          <p class="text-xs opacity-80 mt-1">
+            <span id="affectedOrdersCount">0</span> طلبية متأثرة
+          </p>
+        </div>
+        <div class="text-right">
+          <div class="relative">
+            <i class="fas fa-file-invoice-dollar text-lg md:text-2xl opacity-80 mb-1 md:mb-2"></i>
+            <div class="absolute -top-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-orange-300 rounded-full animate-pulse"></div>
+          </div>
+          <div class="text-xs bg-white bg-opacity-20 px-2 py-1 rounded-full transition-all duration-300 hover:bg-opacity-30 hidden md:block">
+            👁️ عرض التفاصيل
+          </div>
+        </div>
+      </div>
+      <div class="mt-2 md:mt-3 pt-2 border-t border-orange-400 border-opacity-30">
+        <div class="text-xs" id="debtPercentage">
+          <span>نسبة الديون: 0%</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Total Profit -->
+    <div class="card p-3 md:p-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+        <div class="flex items-center justify-between">
+            <div class="flex-1">
+                <p class="text-xs md:text-sm opacity-90">إجمالي الأرباح</p>
+                <p class="text-xl md:text-2xl font-bold">{{ "%.0f"|format(orders|sum(attribute='profit')) }} دج</p>
+                <p class="text-xs opacity-80 mt-1 hidden md:block">صافي الأرباح</p>
+            </div>
+            <div class="relative">
+                <i class="fas fa-chart-line text-lg md:text-2xl opacity-80" aria-hidden="true"></i>
+                <div class="absolute -top-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-teal-300 rounded-full animate-pulse"></div>
+            </div>
+        </div>
+        <div class="mt-2 md:mt-3 pt-2 border-t border-teal-400 border-opacity-30">
+            <div class="text-xs" id="profitPercentage">
+                <span>نسبة الربح: {{ "%.1f"|format((orders|sum(attribute='profit') / orders|sum(attribute='total') * 100) if orders|sum(attribute='total') > 0 else 0) }}%</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Remaining Amount -->
+    <div class="card p-3 md:p-4 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+      <div class="flex items-center justify-between">
+        <div class="flex-1">
+          <p class="text-xs md:text-sm opacity-90">المبلغ المتبقي</p>
+          <p class="text-xl md:text-2xl font-bold">{{ "%.0f"|format(orders|sum(attribute='remaining')) }} دج</p>
+          <p class="text-xs opacity-80 mt-1 hidden md:block">مستحق التحصيل</p>
+        </div>
+        <div class="relative">
+          <i class="fas fa-clock text-lg md:text-2xl opacity-80" aria-hidden="true"></i>
+          <div class="absolute -top-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-indigo-300 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+      <div class="mt-2 md:mt-3 pt-2 border-t border-indigo-400 border-opacity-30">
+        <div class="text-xs" id="collectionRate">
+          <span>معدل التحصيل: {{ "%.1f"|format(((orders|sum(attribute='paid') / orders|sum(attribute='total')) * 100) if orders|sum(attribute='total') > 0 else 0) }}%</span>
+        </div>
+      </div>
+    </div>
+</div>
+
+<!-- Real-time Statistics Update Script -->
+<script>
+// تحديث الإحصائيات في الوقت الحقيقي
+function updateRealTimeStats() {
+    // تحديث إحصائيات الديون
+    updateDebtsStatistics();
+    
+    // تحديث إحصائيات التكاليف
+    updateCostsStatistics();
+    
+    // تحديث إحصائيات الصحة
+    updateHealthStatistics();
+}
+
+// تحديث إحصائيات الديون
+function updateDebtsStatistics() {
+    fetch('/api/orders/with_debts')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const stats = data.statistics;
+                
+                // تحديث بطاقة الديون
+                document.getElementById('ordersDebtsTotal').textContent = Math.round(stats.total_debts) + ' دج';
+                document.getElementById('affectedOrdersCount').textContent = stats.affected_orders;
+                
+                // تحديث النسب المئوية
+                const totalOrders = {{ orders|length }};
+                const debtPercentage = totalOrders > 0 ? (stats.affected_orders / totalOrders * 100).toFixed(1) : 0;
+                document.getElementById('debtPercentage').innerHTML = `<span>نسبة الديون: ${debtPercentage}%</span>`;
+                
+                // تحديث لون البطاقة بناءً على شدة الديون
+                const debtCard = document.getElementById('ordersDebtsCard');
+                if (debtPercentage > 30) {
+                    debtCard.className = debtCard.className.replace('from-orange-500 to-orange-600', 'from-red-500 to-red-600');
+                } else if (debtPercentage > 15) {
+                    debtCard.className = debtCard.className.replace('from-orange-500 to-orange-600', 'from-orange-500 to-orange-600');
+                } else {
+                    debtCard.className = debtCard.className.replace('from-red-500 to-red-600', 'from-orange-500 to-orange-600')
+                                 .replace('from-orange-500 to-orange-600', 'from-orange-500 to-orange-600');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error updating debts statistics:', error);
+        });
+}
+
+// تحديث إحصائيات التكاليف
+function updateCostsStatistics() {
+    fetch('/api/orders/total-costs')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const costs = data.costs;
+                
+                // تحديث عرض التكاليف
+                document.getElementById('totalCombinedCostDisplay').textContent = Math.round(costs.total_combined) + ' دج';
+                document.getElementById('totalPurchasesDisplay').textContent = Math.round(costs.total_purchases);
+                document.getElementById('totalTransportDisplay').textContent = Math.round(costs.total_transport);
+                
+                // تحديث نسبة الربح
+                const totalRevenue = {{ orders|sum(attribute='total') }};
+                const profitPercentage = totalRevenue > 0 ? ((totalRevenue - costs.total_combined) / totalRevenue * 100).toFixed(1) : 0;
+                document.getElementById('profitPercentage').innerHTML = `<span>نسبة الربح: ${profitPercentage}%</span>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error updating costs statistics:', error);
+        });
+}
+
+// تحديث إحصائيات الصحة
+function updateHealthStatistics() {
+    fetch('/api/orders/health-stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const stats = data.stats;
+                
+                // تحديث بطاقة الطلبيات السليمة
+                document.getElementById('healthyOrdersCount').textContent = stats.healthy_orders;
+                document.getElementById('healthyPercentage').innerHTML = `<span>نسبة الصحة: ${stats.healthy_percentage.toFixed(1)}%</span>`;
+                
+                // تحديث لون البطاقة بناءً على نسبة الصحة
+                const healthCard = document.querySelector('.bg-gradient-to-r.from-green-500.to-green-600');
+                if (stats.healthy_percentage >= 80) {
+                    healthCard.className = healthCard.className.replace('from-green-500 to-green-600', 'from-green-500 to-green-600');
+                } else if (stats.healthy_percentage >= 60) {
+                    healthCard.className = healthCard.className.replace('from-green-500 to-green-600', 'from-yellow-500 to-yellow-600');
+                } else {
+                    healthCard.className = healthCard.className.replace('from-green-500 to-green-600', 'from-red-500 to-red-600')
+                                     .replace('from-yellow-500 to-yellow-600', 'from-red-500 to-red-600');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error updating health statistics:', error);
+        });
+}
+
+// تحديث معدل التحصيل
+function updateCollectionRate() {
+    const totalPaid = {{ orders|sum(attribute='paid') }};
+    const totalAmount = {{ orders|sum(attribute='total') }};
+    const collectionRate = totalAmount > 0 ? (totalPaid / totalAmount * 100).toFixed(1) : 0;
+    
+    document.getElementById('collectionRate').innerHTML = `<span>معدل التحصيل: ${collectionRate}%</span>`;
+    
+    // تحديث لون بطاقة المتبقي بناءً على معدل التحصيل
+    const remainingCard = document.querySelector('.bg-gradient-to-r.from-indigo-500.to-indigo-600');
+    if (collectionRate >= 90) {
+        remainingCard.className = remainingCard.className.replace('from-indigo-500 to-indigo-600', 'from-green-500 to-green-600');
+    } else if (collectionRate >= 70) {
+        remainingCard.className = remainingCard.className.replace('from-indigo-500 to-indigo-600', 'from-indigo-500 to-indigo-600');
+    } else {
+        remainingCard.className = remainingCard.className.replace('from-indigo-500 to-indigo-600', 'from-orange-500 to-orange-600')
+                             .replace('from-green-500 to-green-600', 'from-orange-500 to-orange-600');
+    }
+}
+
+// تهيئة التحديث التلقائي
+function initializeStatsAutoRefresh() {
+    // تحديث فوري عند التحميل
+    updateRealTimeStats();
+    updateCollectionRate();
+    
+    // تحديث كل 30 ثانية
+    setInterval(() => {
+        updateRealTimeStats();
+        updateCollectionRate();
+    }, 30000);
+    
+    // تحديث عند حدوث تغييرات في الصفحة
+    document.addEventListener('orderUpdated', function() {
+        setTimeout(() => {
+            updateRealTimeStats();
+            updateCollectionRate();
+        }, 1000);
+    });
+}
+
+// بدء التحديث التلقائي عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    initializeStatsAutoRefresh();
+});
+
+// إضافة تأثيرات تفاعلية للبطاقات
+function initializeCardInteractions() {
+    const cards = document.querySelectorAll('.card');
+    
+    cards.forEach(card => {
+        // تأثير عند المرور
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-4px) scale(1.02)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0) scale(1)';
+        });
+        
+        // تأثير النقر للبطاقات القابلة للنقر
+        if (card.classList.contains('cursor-pointer')) {
+            card.addEventListener('click', function() {
+                this.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    this.style.transform = 'scale(1)';
+                }, 150);
+            });
+        }
+    });
+}
+
+// تهيئة التفاعلات عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCardInteractions();
+});
+
+// تحديث الإحصائيات عند إضافة دفعة
+function updateStatsAfterPayment(amount) {
+    // إضافة تأثير بصري
+    const remainingCard = document.querySelector('.bg-gradient-to-r.from-indigo-500.to-indigo-600');
+    remainingCard.classList.add('payment-update');
+    
+    setTimeout(() => {
+        // إعادة تحميل الإحصائيات
+        updateRealTimeStats();
+        updateCollectionRate();
+        remainingCard.classList.remove('payment-update');
+    }, 1000);
+}
+
+// تحديث الإحصائيات عند تعديل طلبية
+function updateStatsAfterOrderEdit() {
+    // إضافة تأثير بصري لجميع البطاقات
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+        card.classList.add('stats-update');
+    });
+    
+    setTimeout(() => {
+        // إعادة تحميل الإحصائيات
+        updateRealTimeStats();
+        updateCollectionRate();
+        cards.forEach(card => {
+            card.classList.remove('stats-update');
+        });
+    }, 1000);
+}
+
+// إرسال حدث عند تحديث الطلبيات
+function triggerOrderUpdate() {
+    const event = new Event('orderUpdated');
+    document.dispatchEvent(event);
+}
+
+// تصدير الدوال للاستخدام العالمي
+window.updateStatsAfterPayment = updateStatsAfterPayment;
+window.updateStatsAfterOrderEdit = updateStatsAfterOrderEdit;
+window.triggerOrderUpdate = triggerOrderUpdate;
+
+// تحسينات للجوال
+function initializeMobileStats() {
+    // إضافة تأثيرات اللمس للبطاقات
+    const cards = document.querySelectorAll('.card');
+    
+    cards.forEach(card => {
+        card.addEventListener('touchstart', function() {
+            this.style.transform = 'scale(0.98)';
+        });
+        
+        card.addEventListener('touchend', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+}
+
+// تهيئة تحسينات الجوال
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMobileStats();
+});
+</script>

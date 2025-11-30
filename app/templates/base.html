@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title if title else "SOFAZI Admin" }}</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  
+  <!-- Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8fafc;
+    }
+    
+    .sidebar {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      color: #fff;
+      width: 280px;
+      min-height: 100vh;
+      transition: all 0.3s ease;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar .logo {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #fff;
+      font-weight: 800;
+      padding: 20px;
+      text-align: center;
+      font-size: 1.4rem;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #334155;
+    }
+    
+    .sidebar nav {
+      padding: 10px 0;
+    }
+    
+    .sidebar a {
+      display: flex;
+      align-items: center;
+      padding: 14px 20px;
+      color: #cbd5e1;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+      border-right: 3px solid transparent;
+      margin: 2px 0;
+    }
+    
+    .sidebar a:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border-right-color: #f59e0b;
+    }
+    
+    .sidebar a.active {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border-right-color: #f59e0b;
+      font-weight: 600;
+    }
+    
+    .sidebar a i {
+      width: 20px;
+      text-align: center;
+      margin-left: 10px;
+      font-size: 1.1rem;
+    }
+    
+    .content {
+      flex-grow: 1;
+      padding: 20px;
+      background: #f8fafc;
+      min-height: 100vh;
+    }
+    
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 15px 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .topbar h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0;
+    }
+    
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+    
+    .user-avatar {
+      width: 35px;
+      height: 35px;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    
+    .btn-success {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .btn-success:hover {
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      transform: translateY(-1px);
+    }
+    
+    .btn-warning {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .btn-warning:hover {
+      background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+      transform: translateY(-1px);
+    }
+    
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .btn-danger:hover {
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      transform: translateY(-1px);
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      border: 1px solid #e2e8f0;
+      transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+      transform: translateY(-2px);
+    }
+    
+    .table-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    
+    .table-header {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .table th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 600;
+      padding: 15px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .table td {
+      padding: 15px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #475569;
+    }
+    
+    .table tr:hover {
+      background: #f8fafc;
+    }
+    
+    .badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-align: center;
+      display: inline-block;
+    }
+    
+    .badge-success {
+      background: #dcfce7;
+      color: #166534;
+    }
+    
+    .badge-warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
+    .badge-danger {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    .badge-info {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      background: white;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .form-select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: white;
+      cursor: pointer;
+    }
+    
+    .form-select:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+    
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      max-width: 90%;
+      max-height: 90%;
+      overflow: auto;
+      animation: modalSlideIn 0.3s ease;
+    }
+    
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 20px;
+    }
+    
+    .page-item {
+      padding: 8px 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .page-item.active {
+      background: #3b82f6;
+      color: white;
+      border-color: #3b82f6;
+    }
+    
+    .page-item:hover:not(.active) {
+      background: #f3f4f6;
+    }
+
+    /* أنماط التنبيهات */
+    .alert {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid transparent;
+    }
+    
+    .alert-success {
+      color: #166534;
+      background-color: #dcfce7;
+      border-color: #bbf7d0;
+    }
+    
+    .alert-error {
+      color: #991b1b;
+      background-color: #fee2e2;
+      border-color: #fecaca;
+    }
+    
+    .alert-warning {
+      color: #92400e;
+      background-color: #fef3c7;
+      border-color: #fde68a;
+    }
+    
+    .alert-info {
+      color: #1e40af;
+      background-color: #dbeafe;
+      border-color: #bfdbfe;
+    }
+    
+    /* تصميم متجاوب */
+    @media (max-width: 1024px) {
+      .sidebar {
+        width: 80px;
+      }
+      
+      .sidebar .logo span,
+      .sidebar a span {
+        display: none;
+      }
+      
+      .sidebar a {
+        justify-content: center;
+        padding: 15px;
+      }
+      
+      .sidebar a i {
+        margin-left: 0;
+        font-size: 1.2rem;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .content {
+        padding: 15px;
+      }
+      
+      .topbar {
+        padding: 12px 15px;
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      
+      .topbar h1 {
+        font-size: 1.2rem;
+      }
+      
+      .user-info span {
+        display: none;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .sidebar {
+        width: 60px;
+      }
+      
+      .content {
+        padding: 10px;
+      }
+      
+      .table-container {
+        font-size: 0.8rem;
+      }
+      
+      .table th,
+      .table td {
+        padding: 8px 4px;
+      }
+    }
+    
+    /* تخصيص شريط التمرير */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+
+<body class="flex min-h-screen">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">
+      <i class="fas fa-cube"></i>
+      <span> SOFAZI Admin</span>
+    </div>
+    
+    <nav class="mt-4">
+      <!-- 🔥 تم إصلاح جميع الروابط لاستخدام المسارات المباشرة -->
+      <a href="/dashboard" class="{% if request.path == '/dashboard' %}active{% endif %}">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>الرئيسية</span>
+      </a>
+      
+      <a href="/orders" class="{% if request.path.startswith('/orders') %}active{% endif %}">
+        <i class="fa-solid fa-box"></i>
+        <span>الطلبيات</span>
+      </a>
+      
+      <a href="/workers" class="{% if request.path.startswith('/workers') %}active{% endif %}">
+        <i class="fa-solid fa-users"></i>
+        <span>حقوق العمال</span>
+      </a>
+      
+      <a href="/expenses" class="{% if request.path.startswith('/expenses') %}active{% endif %}">
+        <i class="fas fa-receipt"></i>
+        <span>المصاريف والمشتريات</span>
+      </a>
+      
+      <a href="/transport" class="{% if request.path.startswith('/transport') %}active{% endif %}">
+        <i class="fa-solid fa-truck"></i>
+        <span>النقل</span>
+      </a>
+      
+      <a href="/debts" class="{% if request.path.startswith('/debts') %}active{% endif %}">
+        <i class="fa-solid fa-money-bill-wave"></i>
+        <span>الديون</span>
+      </a>
+      
+      <a href="/tasks" class="{% if request.path.startswith('/tasks') %}active{% endif %}">
+        <i class="fa-solid fa-tasks"></i>
+        <span>المهام</span>
+      </a>
+      
+      <a href="/settings" class="{% if request.path.startswith('/settings') %}active{% endif %}">
+        <i class="fa-solid fa-gear"></i>
+        <span>الإعدادات</span>
+      </a>
+      
+      <hr class="my-4 border-gray-600">
+      
+      <a href="/logout">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span>تسجيل الخروج</span>
+      </a>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div class="flex flex-col flex-grow">
+    <!-- Top Bar -->
+    <div class="topbar">
+      <h1>{{ page_title if page_title else "لوحة التحكم" }}</h1>
+      <div class="user-info">
+        <div class="user-avatar">
+          {{ session['user'][0] if session and session.get('user') else 'A' }}
+        </div>
+        <span>مرحبًا {{ session['user'] if session and session.get('user') else 'مستخدم' }}</span>
+      </div>
+    </div>
+
+    <!-- Page Content -->
+    <div class="content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} mb-4">
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  
+  <script>
+    // دالة لإظهار وإخفاء المودال
+    function showModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+    }
+    
+    function hideModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = 'auto';
+      }
+    }
+    
+    // إغلاق المودال عند النقر خارج المحتوى
+    document.addEventListener('click', function(event) {
+      if (event.target.classList.contains('modal')) {
+        hideModal(event.target.id);
+      }
+    });
+    
+    // البحث الفوري في الجداول
+    function searchTable(inputId, tableId) {
+      const input = document.getElementById(inputId);
+      const table = document.getElementById(tableId);
+      
+      if (!input || !table) return;
+      
+      const rows = table.getElementsByTagName('tr');
+      
+      input.addEventListener('input', function() {
+        const filter = this.value.toLowerCase();
+        
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(filter) ? '' : 'none';
+        }
+      });
+    }
+    
+    // فلترة الجدول حسب القيمة
+    function filterTable(selectId, tableId, columnIndex) {
+      const select = document.getElementById(selectId);
+      const table = document.getElementById(tableId);
+      
+      if (!select || !table) return;
+      
+      const rows = table.getElementsByTagName('tr');
+      
+      select.addEventListener('change', function() {
+        const filter = this.value;
+        
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const cell = row.getElementsByTagName('td')[columnIndex];
+          
+          if (!cell) continue;
+          
+          const cellText = cell.textContent || cell.innerText;
+          row.style.display = (!filter || cellText === filter) ? '' : 'none';
+        }
+      });
+    }
+    
+    // تنسيق الأرقام المالية
+    function formatCurrency(amount) {
+      return new Intl.NumberFormat('ar-DZ', {
+        style: 'currency',
+        currency: 'DZD'
+      }).format(amount);
+    }
+    
+    // نسخ النص إلى الحافظة
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(function() {
+        showToast('تم نسخ النص إلى الحافظة');
+      }).catch(function() {
+        showToast('فشل في نسخ النص', 'error');
+      });
+    }
+    
+    // إظهار رسائل Toast
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `fixed top-4 left-4 z-50 p-4 rounded-lg shadow-lg ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        'bg-blue-500 text-white'
+      }`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.remove();
+        }
+      }, 3000);
+    }
+    
+    // تهيئة المكونات عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', function() {
+      // تهيئة البحث في الجداول
+      const searchInputs = document.querySelectorAll('[data-search]');
+      searchInputs.forEach(input => {
+        const targetTable = input.getAttribute('data-search');
+        searchTable(input.id, targetTable);
+      });
+      
+      // تهيئة الفلاتر
+      const filterSelects = document.querySelectorAll('[data-filter]');
+      filterSelects.forEach(select => {
+        const targetTable = select.getAttribute('data-filter');
+        const columnIndex = parseInt(select.getAttribute('data-column'));
+        filterTable(select.id, targetTable, columnIndex);
+      });
+    });
+  </script>
+</body>
+</html>

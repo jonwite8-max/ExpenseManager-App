@@ -1,0 +1,2491 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <!-- رأس الصفحة -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">👥 إدارة حقوق العمال</h1>
+      <p class="text-gray-600 mt-2">إدارة معلومات العمال والحقوق المالية المستحقة</p>
+    </div>
+    
+    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <!-- إجمالي الحقوق -->
+      <div class="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl px-6 py-4 shadow-lg">
+        <div class="text-sm font-medium">إجمالي الحقوق المستحقة</div>
+        <div class="text-2xl font-bold mt-1">{{ "%.2f"|format(total_salaries) }} <span class="text-sm">دج</span></div>
+      </div>
+      
+      <!-- إجمالي التسبيقات -->
+      <div class="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl px-6 py-4 shadow-lg">
+        <div class="text-sm font-medium">إجمالي التسبيقات</div>
+        <div class="text-2xl font-bold mt-1">{{ "%.2f"|format(total_advances) }} <span class="text-sm">دج</span></div>
+      </div>
+      
+      
+    </div>
+  </div>
+
+  <!-- بطاقات الإحصائيات السريعة -->
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <div class="card p-4 text-center">
+      <div class="text-2xl font-bold text-blue-600">{{ workers|length }}</div>
+      <div class="text-sm text-gray-600 mt-1">إجمالي العمال</div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-2xl font-bold text-green-600">{{ active_workers|length }}</div>
+      <div class="text-sm text-gray-600 mt-1">عمال نشطين</div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-2xl font-bold text-orange-600">{{ workers|sum(attribute='absences') }}</div>
+      <div class="text-sm text-gray-600 mt-1">أيام غياب</div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-2xl font-bold text-purple-600">{{ workers|sum(attribute='outside_work_days') }}</div>
+      <div class="text-sm text-gray-600 mt-1">أيام خارجية</div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-2xl font-bold text-red-600">{{ frozen_workers|length }}</div>
+      <div class="text-sm text-gray-600 mt-1">عمال مجمدين</div>
+    </div>
+  </div>
+  <!-- إحصائيات التكلفة الشهرية -->
+    <div class="card p-4 flex-1 min-w-64">
+        <h3 class="font-semibold text-gray-900 mb-3">💰 التكلفة الشهرية</h3>
+        <div class="space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600">الشهر الحالي:</span>
+                <span class="font-bold text-blue-600" id="currentMonthCost">0 دج</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600">إجمالي المدفوع:</span>
+                <span class="font-bold text-green-600" id="totalPaidCost">0 دج</span>
+            </div>
+            <button onclick="showMonthlyCosts()" class="w-full btn-info text-sm mt-2">
+                <i class="fas fa-chart-bar ml-2"></i>
+                عرض التفاصيل الشهرية
+            </button>
+        </div>
+    </div>
+
+    <!-- نظام التقييم السريع -->
+    <div class="card p-4 flex-1 min-w-64">
+        <h3 class="font-semibold text-gray-900 mb-3">⭐ تقييم سريع</h3>
+        <div class="space-y-2">
+            <select class="form-select text-sm" id="quickEvalWorker">
+                <option value="">اختر العامل</option>
+                {% for worker in active_workers %}
+                <option value="{{ worker.id }}">{{ worker.name }}</option>
+                {% endfor %}
+            </select>
+            <select class="form-select text-sm" id="quickEvalOrder">
+                <option value="">اختر الطلبية (اختياري)</option>
+                {% for order in orders %}
+                <option value="{{ order.id }}">#{{ order.id }} - {{ order.name }}</option>
+                {% endfor %}
+            </select>
+            <button onclick="showQuickEvaluation()" class="w-full btn-warning text-sm">
+                <i class="fas fa-star ml-2"></i>
+                بدء التقييم
+            </button>
+        </div>
+    </div>
+
+    <!-- تقرير السجلات الشهرية -->
+    <div class="card p-4 flex-1 min-w-64">
+        <h3 class="font-semibold text-gray-900 mb-3">📊 التقارير الشهرية</h3>
+        <div class="space-y-2">
+            <div class="flex gap-2">
+                <select class="form-select text-sm flex-1" id="reportMonth">
+                    {% for i in range(1, 13) %}
+                    <option value="{{ i }}" {% if i == now.month %}selected{% endif %}>{{ i }}</option>
+                    {% endfor %}
+                </select>
+                <select class="form-select text-sm flex-1" id="reportYear">
+                    {% for i in range(now.year-2, now.year+1) %}
+                    <option value="{{ i }}" {% if i == now.year %}selected{% endif %}>{{ i }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button onclick="generateMonthlyReport()" class="w-full btn-success text-sm">
+                <i class="fas fa-file-pdf ml-2"></i>
+                إنشاء تقرير
+            </button>
+        </div>
+    </div>
+</div>
+  <!-- الأزرار الجديدة -->
+    <div class="flex gap-2">
+        <button onclick="showModal('addWorkerModal')" class="btn-success flex items-center gap-2">
+            <i class="fas fa-user-plus"></i>
+            إضافة عامل جديد
+        </button>
+        
+        <!-- زر السجلات الشهرية -->
+        <a href="{{ url_for('workers_monthly_records') }}" class="btn-primary flex items-center gap-2">
+            <i class="fas fa-calendar-alt"></i>
+            السجلات الشهرية
+        </a>
+        
+        <!-- زر تقييمات العمال -->
+        <a href="{{ url_for('worker_evaluations') }}" class="btn-info flex items-center gap-2">
+            <i class="fas fa-chart-line"></i>
+            تقييمات الأداء
+        </a>
+    </div>
+</div>
+
+  <!-- شريط البحث والتصفية المبسطة -->
+  <div class="card p-6 mb-6">
+    <div class="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+      <!-- بحث -->
+      <div class="flex-1 w-full">
+        <label class="block text-sm font-medium text-gray-700 mb-2">🔍 بحث عن عامل</label>
+        <input 
+          type="text" 
+          id="searchInput"
+          placeholder="ابحث بالاسم، الهاتف، رقم البطاقة..."
+          class="form-input w-full"
+          oninput="filterWorkers()"
+        >
+      </div>
+      
+      <!-- فلتر الحالة فقط -->
+      <div class="w-full md:w-auto">
+        <label class="block text-sm font-medium text-gray-700 mb-2">📊 حالة العامل</label>
+        <select id="statusFilter" class="form-select w-full md:w-48" onchange="filterWorkers()">
+          <option value="all">جميع العمال</option>
+          <option value="active">النشطين فقط</option>
+          <option value="frozen">المجمدين فقط</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- بطاقات العمال -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="workersGrid">
+    {% for worker in workers %}
+    <div class="worker-card card hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 {% if not worker.is_active %}frozen-card{% endif %}" 
+         data-worker-id="{{ worker.id }}"
+         data-worker-name="{{ worker.name }}"
+         data-worker-phone="{{ worker.phone }}"
+         data-worker-address="{{ worker.address or '' }}"
+         data-worker-id-card="{{ worker.id_card or '' }}"
+         data-worker-start-date="{{ worker.start_date.strftime('%Y-%m-%d') }}"
+         data-worker-original-start-date="{{ worker.created_at.strftime('%Y-%m-%d') if worker.created_at else worker.start_date.strftime('%Y-%m-%d') }}"
+         data-worker-monthly-salary="{{ worker.monthly_salary }}"
+         data-worker-absences="{{ worker.absences }}"
+         data-worker-outside-work-days="{{ worker.outside_work_days }}"
+         data-worker-outside-work-bonus="{{ worker.outside_work_bonus }}"
+         data-worker-advances="{{ worker.advances }}"
+         data-worker-incentives="{{ worker.incentives }}"
+         data-worker-late-hours="{{ worker.late_hours or 0 }}"
+         data-worker-is-active="{{ worker.is_active }}"
+         data-worker-total-salary="{{ worker.total_salary }}">
+      
+      <!-- رأس البطاقة -->
+      <div class="card-header bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-xl p-4 -mx-4 -mt-4 mb-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-white font-semibold text-lg backdrop-blur-sm">
+              {{ worker.name[0] }}
+            </div>
+            <div>
+              <div class="font-bold text-white text-lg">{{ worker.name }}</div>
+              <div class="text-blue-100 text-sm">{{ worker.phone }}</div>
+            </div>
+          </div>
+          <div class="text-right">
+            {% if not worker.is_active %}
+            <span class="badge badge-danger bg-white/20 backdrop-blur-sm">🔄 مجمد</span>
+            {% else %}
+            <span class="badge badge-success bg-white/20 backdrop-blur-sm">✅ نشط</span>
+            {% endif %}
+            <div class="text-blue-100 text-xs mt-1">#{{ worker.id }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- المعلومات الأساسية -->
+      <div class="space-y-4 mb-4 px-2">
+        <div class="grid grid-cols-1 gap-3 text-sm">
+          {% if worker.id_card %}
+          <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+            <div class="flex items-center gap-2 text-gray-600">
+              <i class="fas fa-id-card text-blue-500"></i>
+              <span>رقم البطاقة:</span>
+            </div>
+            <div class="font-medium text-gray-800">{{ worker.id_card }}</div>
+          </div>
+          {% endif %}
+          
+          <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+            <div class="flex items-center gap-2 text-gray-600">
+              <i class="fas fa-calendar-day text-green-500"></i>
+              <span>تاريخ البدء:</span>
+            </div>
+            <div class="font-medium text-gray-800">{{ worker.start_date.strftime('%Y-%m-%d') }}</div>
+          </div>
+
+          <!-- تاريخ التسجيل الأول -->
+          <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+            <div class="flex items-center gap-2 text-gray-600">
+              <i class="fas fa-user-plus text-purple-500"></i>
+              <span>مسجل منذ:</span>
+            </div>
+            <div class="font-medium text-gray-800">
+              {% if worker.created_at %}
+                {{ worker.created_at.strftime('%Y-%m-%d') }}
+              {% else %}
+                {{ worker.start_date.strftime('%Y-%m-%d') }}
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+            <div class="flex items-center gap-2 text-gray-600">
+              <i class="fas fa-clock text-orange-500"></i>
+              <span>أيام العمل:</span>
+            </div>
+            <div class="font-medium text-gray-800">{{ (now.date() - worker.start_date).days }} يوم</div>
+          </div>
+          
+          {% if worker.address %}
+          <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+            <div class="flex items-center gap-2 text-gray-600">
+              <i class="fas fa-map-marker-alt text-red-500"></i>
+              <span>العنوان:</span>
+            </div>
+            <div class="font-medium text-gray-800 text-left">{{ worker.address }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- الحضور والغياب -->
+      <div class="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-4 mb-4 border border-gray-200 mx-2">
+        <h4 class="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2">
+          <i class="fas fa-user-clock text-purple-500"></i>
+          الحضور والغياب
+        </h4>
+        <div class="grid grid-cols-3 gap-3 text-xs">
+          <div class="text-center bg-white rounded-lg p-2 shadow-sm">
+            <div class="text-gray-600 mb-1">الغياب</div>
+            <div class="font-bold text-red-600 text-lg">{{ worker.absences }}</div>
+            <div class="text-gray-500 text-xs">يوم</div>
+          </div>
+          <div class="text-center bg-white rounded-lg p-2 shadow-sm">
+            <div class="text-gray-600 mb-1">خارجية</div>
+            <div class="font-bold text-blue-600 text-lg">{{ worker.outside_work_days }}</div>
+            <div class="text-gray-500 text-xs">يوم</div>
+          </div>
+          <div class="text-center bg-white rounded-lg p-2 shadow-sm">
+            <div class="text-gray-600 mb-1">تأخر</div>
+            <div class="font-bold text-orange-600 text-lg">{{ worker.late_hours or 0 }}</div>
+            <div class="text-gray-500 text-xs">ساعة</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- المعلومات المالية -->
+      <div class="space-y-3 mb-4 px-2">
+        <div class="flex justify-between items-center p-3 rounded-lg bg-blue-50 border border-blue-100">
+          <span class="text-gray-700 font-medium">الراتب الشهري:</span>
+          <span class="font-bold text-blue-600">{{ "%.2f"|format(worker.monthly_salary) }} دج</span>
+        </div>
+        <div class="flex justify-between items-center p-3 rounded-lg bg-green-50 border border-green-100">
+          <span class="text-gray-700 font-medium">التسبيقات:</span>
+          <span class="font-bold text-green-600">{{ "%.2f"|format(worker.advances) }} دج</span>
+        </div>
+        <div class="flex justify-between items-center p-3 rounded-lg bg-orange-50 border border-orange-100">
+          <span class="text-gray-700 font-medium">العمل الخارجي:</span>
+          <span class="font-bold text-orange-600">+{{ "%.2f"|format(worker.outside_work_bonus) }} دج</span>
+        </div>
+        <div class="flex justify-between items-center p-3 rounded-lg bg-purple-50 border border-purple-100">
+          <span class="text-gray-700 font-medium">التحفيزات:</span>
+          <span class="font-bold text-purple-600">+{{ "%.2f"|format(worker.incentives) }} دج</span>
+        </div>
+      </div>
+
+      <!-- 🆕 قسم معلومات تسجيل الدخول - معدل -->
+{% if worker.username %}
+<div class="border-t pt-4 mt-2 px-2">
+    <div class="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+        <h4 class="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+            <i class="fas fa-user-lock text-purple-600"></i>
+            معلومات تسجيل الدخول
+        </h4>
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between items-center">
+                <span class="text-purple-700">اسم المستخدم:</span>
+                <span class="font-mono font-bold text-purple-900">{{ worker.username }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-purple-700">كلمة المرور:</span>
+                <div class="flex items-center gap-2">
+                    <span class="font-mono font-bold text-purple-900" id="password-{{ worker.id }}">••••••••</span>
+                    <button onclick="toggleWorkerPassword({{ worker.id }})" 
+                            class="text-purple-600 hover:text-purple-800 text-xs p-1 rounded hover:bg-purple-100 transition-colors"
+                            id="toggle-password-{{ worker.id }}">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button onclick="copyWorkerPassword({{ worker.id }})" 
+                            class="text-green-600 hover:text-green-800 text-xs p-1 rounded hover:bg-green-100 transition-colors">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-purple-700">الحالة:</span>
+                <span class="font-bold {% if worker.is_login_active %}text-green-600{% else %}text-red-600{% endif %}">
+                    {{ 'نشط' if worker.is_login_active else 'معطل' }}
+                </span>
+            </div>
+        </div>
+        
+        <div class="flex gap-2 mt-3">
+            <button onclick="resetWorkerPassword({{ worker.id }})" 
+                    class="btn-warning text-xs py-1 px-2 flex-1 flex items-center justify-center gap-1">
+                <i class="fas fa-key"></i>
+                إعادة تعيين
+            </button>
+            <button onclick="toggleWorkerLogin({{ worker.id }})" 
+                    class="{% if worker.is_login_active %}btn-danger{% else %}btn-success{% endif %} text-xs py-1 px-2 flex-1 flex items-center justify-center gap-1">
+                <i class="fas fa-{% if worker.is_login_active %}pause{% else %}play{% endif %}"></i>
+                {{ 'تعطيل' if worker.is_login_active else 'تفعيل' }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+
+// دالة إظهار/إخفاء كلمة المرور للعامل
+async function toggleWorkerPassword(workerId) {
+    const passwordElement = document.getElementById(`password-${workerId}`);
+    const toggleButton = document.getElementById(`toggle-password-${workerId}`);
+    
+    if (passwordElement.textContent === '••••••••') {
+        try {
+            const response = await fetch(`/workers/${workerId}/get_password`);
+            const data = await response.json();
+            
+            if (data.success) {
+                passwordElement.textContent = data.password;
+                toggleButton.innerHTML = '<i class="fas fa-eye-slash"></i>';
+                toggleButton.classList.add('text-purple-800');
+                
+                // إخفاء كلمة المرور بعد 30 ثانية تلقائياً
+                setTimeout(() => {
+                    if (passwordElement.textContent !== '••••••••') {
+                        passwordElement.textContent = '••••••••';
+                        toggleButton.innerHTML = '<i class="fas fa-eye"></i>';
+                        toggleButton.classList.remove('text-purple-800');
+                    }
+                }, 30000);
+            } else {
+                showToast('error', 'خطأ في جلب كلمة المرور');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('error', 'حدث خطأ في جلب كلمة المرور');
+        }
+    } else {
+        passwordElement.textContent = '••••••••';
+        toggleButton.innerHTML = '<i class="fas fa-eye"></i>';
+        toggleButton.classList.remove('text-purple-800');
+    }
+}
+// دالة نسخ كلمة المرور للعامل
+async function copyWorkerPassword(workerId) {
+    try {
+        const response = await fetch(`/workers/${workerId}/get_password`);
+        const data = await response.json();
+        
+        if (data.success) {
+            // نسخ إلى الحافظة
+            await navigator.clipboard.writeText(data.password);
+            showToast('success', 'تم نسخ كلمة المرور');
+            
+            // إظهار كلمة المرور مؤقتاً
+            const passwordElement = document.getElementById(`password-${workerId}`);
+            const originalText = passwordElement.textContent;
+            passwordElement.textContent = data.password;
+            
+            // العودة إلى النقاط بعد 3 ثوان
+            setTimeout(() => {
+                passwordElement.textContent = originalText;
+            }, 3000);
+        } else {
+            showToast('error', 'خطأ في جلب كلمة المرور');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('error', 'حدث خطأ في نسخ كلمة المرور');
+    }
+}
+// دالة إعادة تعيين كلمة المرور
+function resetWorkerPassword(workerId) {
+    if (confirm('هل تريد إعادة تعيين كلمة المرور لهذا العامل؟ سيتم إنشاء كلمة مرور جديدة.')) {
+        fetch(`/workers/${workerId}/reset_password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', `تم إعادة تعيين كلمة المرور: ${data.new_password}`);
+                // تحديث عرض كلمة المرور بعد 2 ثانية
+                setTimeout(() => {
+                    const passwordElement = document.getElementById(`password-${workerId}`);
+                    passwordElement.textContent = '••••••••';
+                }, 2000);
+            } else {
+                showToast('error', 'خطأ: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'حدث خطأ في إعادة التعيين');
+        });
+    }
+}
+
+// دالة تفعيل/تعطيل حساب العامل
+function toggleWorkerLogin(workerId) {
+    fetch(`/workers/${workerId}/toggle_login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', data.message);
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showToast('error', 'خطأ: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'حدث خطأ في تغيير الحالة');
+    });
+}
+// دالة لجلب كلمة المرور من السيرفر
+async function togglePassword(workerId) {
+    const passwordElement = document.getElementById(`password-${workerId}`);
+    
+    if (passwordElement.textContent === '••••••••') {
+        try {
+            const response = await fetch(`/workers/${workerId}/get_password`);
+            const data = await response.json();
+            
+            if (data.success) {
+                passwordElement.textContent = data.password;
+                // إخفاء كلمة المرور بعد 10 ثواني
+                setTimeout(() => {
+                    passwordElement.textContent = '••••••••';
+                }, 10000);
+            } else {
+                showToast('error', 'خطأ في جلب كلمة المرور');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('error', 'حدث خطأ في جلب كلمة المرور');
+        }
+    } else {
+        passwordElement.textContent = '••••••••';
+    }
+}
+</script>
+{% endif %} 
+
+      <!-- الإجمالي المستحق -->
+      <div class="border-t pt-4 mt-2 px-2">
+        <div class="flex justify-between items-center mb-4 bg-gradient-to-r from-gray-50 to-white p-4 rounded-lg border">
+          <div>
+            <span class="font-semibold text-gray-900 text-lg">المستحق الحالي:</span>
+            <div class="text-xs text-gray-500 mt-1">
+              منذ {{ (now.date() - worker.start_date).days }} يوم
+            </div>
+          </div>
+          <span class="text-xl font-bold {% if worker.total_salary > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+            {{ "%.2f"|format(worker.total_salary) }} دج
+          </span>
+        </div>
+
+        <!-- أزرار العمليات الرئيسية -->
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button onclick="showWorkerManagement({{ worker.id }})" class="btn-info text-sm py-2 flex items-center justify-center gap-1">
+            <i class="fas fa-cog"></i>
+            إدارة الحساب
+          </button>
+          <button onclick="editWorker({{ worker.id }})" class="btn-primary text-sm py-2 flex items-center justify-center gap-1">
+            <i class="fas fa-edit"></i>
+            تعديل البيانات
+          </button>
+          <button onclick="showWorkerHistory({{ worker.id }})" class="btn-success text-sm py-2 flex items-center justify-center gap-1">
+            <i class="fas fa-history"></i>
+            السجل الكامل
+          </button>
+          <button onclick="printWorkerReport({{ worker.id }})" class="btn-warning text-sm py-2 flex items-center justify-center gap-1">
+            <i class="fas fa-print"></i>
+            طباعة التقرير
+          </button>
+        </div>
+
+        <!-- أزرار الدفع والحالة -->
+        <div class="flex gap-2">
+          {% if worker.is_active and worker.total_salary > 0 %}
+          <button onclick="paySalary({{ worker.id }}, '{{ worker.name }}', {{ worker.total_salary }})" 
+                  class="btn-success flex-1 text-sm py-2 flex items-center justify-center gap-1">
+            <i class="fas fa-money-bill-wave"></i>
+            دفع الراتب
+          </button>
+          {% else %}
+          <button class="btn-secondary flex-1 text-sm py-2 flex items-center justify-center gap-1 opacity-50 cursor-not-allowed">
+            <i class="fas fa-money-bill-wave"></i>
+            دفع الراتب
+          </button>
+          {% endif %}
+          
+          {% if worker.is_active %}
+          <button onclick="toggleWorkerStatus({{ worker.id }}, 'freeze')" class="btn-danger text-sm py-2 px-3 flex items-center justify-center gap-1">
+            <i class="fas fa-pause"></i>
+            تجميد
+          </button>
+          {% else %}
+          <button onclick="toggleWorkerStatus({{ worker.id }}, 'activate')" class="btn-success text-sm py-2 px-3 flex items-center justify-center gap-1">
+            <i class="fas fa-play"></i>
+            تفعيل
+          </button>
+          {% endif %}
+          
+          <button onclick="deleteWorker({{ worker.id }}, '{{ worker.name }}')" class="btn-danger text-sm py-2 px-3 flex items-center justify-center">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <!-- حالة عدم وجود عمال -->
+    <div class="col-span-3">
+      <div class="card p-12 text-center">
+        <div class="flex flex-col items-center justify-center">
+          <i class="fas fa-users text-6xl text-gray-300 mb-4"></i>
+          <h3 class="text-xl font-semibold text-gray-500 mb-2">لا توجد عمال مسجلين</h3>
+          <p class="text-gray-400 mb-6">ابدأ بإضافة أول عامل إلى النظام</p>
+          <button onclick="showModal('addWorkerModal')" class="btn-primary flex items-center gap-2">
+            <i class="fas fa-user-plus"></i>
+            إضافة أول عامل
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ========== النوافذ المنبثقة ========== -->
+ <!-- نافذة التكلفة الشهرية -->
+<div id="monthlyCostsModal" class="modal">
+    <div class="modal-content max-w-4xl">
+        <div class="modal-header">
+            <h3>💰 التكلفة الشهرية للعمال</h3>
+            <button type="button" onclick="hideModal('monthlyCostsModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div id="monthlyCostsContent">
+                <!-- سيتم تحميل المحتوى هنا -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة التقييم السريع -->
+<div id="quickEvaluationModal" class="modal">
+    <div class="modal-content max-w-2xl">
+        <div class="modal-header">
+            <h3>⭐ تقييم أداء العامل</h3>
+            <button type="button" onclick="hideModal('quickEvaluationModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div id="quickEvaluationContent">
+                <!-- سيتم تحميل المحتوى هنا -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة السجلات الشهرية للعامل -->
+<div id="workerMonthlyHistoryModal" class="modal">
+    <div class="modal-content max-w-4xl">
+        <div class="modal-header">
+            <h3>📅 السجل الشهري - <span id="monthlyHistoryWorkerName"></span></h3>
+            <button type="button" onclick="hideModal('workerMonthlyHistoryModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div id="workerMonthlyHistoryContent">
+                <!-- سيتم تحميل المحتوى هنا -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة إضافة/تعديل عامل -->
+<div id="addWorkerModal" class="modal">
+  <div class="modal-content max-w-2xl">
+    <div class="modal-header">
+      <h3 id="addWorkerModalTitle">👤 إضافة عامل جديد</h3>
+      <button type="button" onclick="hideModal('addWorkerModal')" class="modal-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <form id="workerForm" method="POST" action="{{ url_for('add_worker') }}">
+      <div class="modal-body">
+        <div class="space-y-4">
+          <!-- المعلومات الأساسية -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">الاسم الكامل *</label>
+              <input type="text" name="name" required class="form-input" placeholder="أدخل الاسم الكامل للعامل">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">📞 رقم الهاتف *</label>
+              <input type="tel" name="phone" required class="form-input" placeholder="+213 XXX XX XX XX">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">🏠 العنوان</label>
+              <input type="text" name="address" class="form-input" placeholder="الولاية والبلدية">
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">رقم بطاقة التعريف</label>
+              <input type="text" name="id_card" class="form-input" placeholder="رقم البطاقة الوطني">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">📅 تاريخ بداية العمل *</label>
+              <input type="date" name="start_date" required class="form-input" id="startDateInput">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">💰 الراتب الشهري (دج) *</label>
+              <input type="number" step="0.01" name="monthly_salary" required class="form-input" placeholder="0.00" min="0">
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" onclick="hideModal('addWorkerModal')" class="btn-secondary">
+          إلغاء
+        </button>
+        <button type="submit" class="btn-success">
+          <i class="fas fa-save ml-2"></i>
+          حفظ العامل
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- نافذة إدارة العامل -->
+<div id="workerManagementModal" class="modal">
+  <div class="modal-content max-w-4xl">
+    <div class="modal-header">
+      <h3>⚙️ إدارة حساب العامل - <span id="managementWorkerName"></span></h3>
+      <button type="button" onclick="hideModal('workerManagementModal')" class="modal-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-sm text-blue-600">الراتب الأساسي: <span id="managementBaseSalary" class="font-bold"></span></div>
+            <div class="text-sm text-blue-600 mt-1">المستحق الحالي: <span id="managementCurrentSalary" class="font-bold"></span></div>
+            <div class="text-sm text-blue-600 mt-1">أيام العمل: <span id="managementWorkDays" class="font-bold"></span> يوم</div>
+          </div>
+          <button onclick="showWorkerHistory(currentManagementWorkerId)" class="btn-info text-sm">
+            <i class="fas fa-history ml-2"></i>
+            عرض السجل الكامل
+          </button>
+        </div>
+      </div>
+      
+      <div id="workerManagementContent">
+        <!-- سيتم تحميل المحتوى هنا عبر JavaScript -->
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button type="button" onclick="hideModal('workerManagementModal')" class="btn-primary">
+        إغلاق
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة دفع الراتب -->
+<div id="paySalaryModal" class="modal">
+  <div class="modal-content max-w-md">
+    <div class="modal-header">
+      <h3>💰 دفع راتب العامل</h3>
+      <button type="button" onclick="hideModal('paySalaryModal')" class="modal-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <form id="paySalaryForm">
+        <div id="paySalaryContent">
+          <!-- سيتم تحميل المحتوى هنا عبر JavaScript -->
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة سجل العامل -->
+<div id="workerHistoryModal" class="modal">
+  <div class="modal-content max-w-4xl">
+    <div class="modal-header">
+      <h3>📋 السجل الكامل للعامل - <span id="historyWorkerName"></span></h3>
+      <button type="button" onclick="hideModal('workerHistoryModal')" class="modal-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div id="workerHistoryContent">
+        <!-- سيتم تحميل المحتوى هنا عبر JavaScript -->
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button type="button" onclick="hideModal('workerHistoryModal')" class="btn-primary">
+        إغلاق
+      </button>
+      <button onclick="printWorkerReport(currentHistoryWorkerId)" class="btn-success">
+        <i class="fas fa-print ml-2"></i>
+        طباعة التقرير
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// المتغيرات العامة
+let currentManagementWorkerId = null;
+let currentHistoryWorkerId = null;
+let currentEditWorkerId = null;
+
+// دالة إظهار وإخفاء المودال
+function showModal(modalId) {
+    document.getElementById(modalId).classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function hideModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+    document.body.style.overflow = 'auto';
+    if (modalId === 'addWorkerModal') {
+        resetWorkerForm();
+    }
+}
+
+// إعادة تعيين نموذج إضافة العامل
+function resetWorkerForm() {
+    const form = document.getElementById('workerForm');
+    if (form) {
+        form.reset();
+        form.action = "{{ url_for('add_worker') }}";
+        document.getElementById('addWorkerModalTitle').textContent = '👤 إضافة عامل جديد';
+        document.querySelector('#addWorkerModal button[type="submit"]').innerHTML = '<i class="fas fa-save ml-2"></i> حفظ العامل';
+        currentEditWorkerId = null;
+    }
+    
+    // تعيين تاريخ اليوم كقيمة افتراضية
+    const today = new Date().toISOString().split('T')[0];
+    const startDateInput = document.getElementById('startDateInput');
+    if (startDateInput) {
+        startDateInput.value = today;
+    }
+}
+
+// دالة التصفية المحسنة
+function filterWorkers() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    const cards = document.querySelectorAll('#workersGrid > div.worker-card');
+    
+    cards.forEach(card => {
+        const workerName = card.getAttribute('data-worker-name').toLowerCase();
+        const workerPhone = card.getAttribute('data-worker-phone').toLowerCase();
+        const workerIdCard = card.getAttribute('data-worker-id-card').toLowerCase();
+        const isActive = card.getAttribute('data-worker-is-active') === 'True';
+        
+        // البحث
+        const matchesSearch = workerName.includes(searchTerm) || 
+                            workerPhone.includes(searchTerm) || 
+                            workerIdCard.includes(searchTerm);
+        
+        // التصفية حسب الحالة
+        let matchesStatus = true;
+        if (statusFilter === 'active') {
+            matchesStatus = isActive;
+        } else if (statusFilter === 'frozen') {
+            matchesStatus = !isActive;
+        }
+        
+        card.style.display = (matchesSearch && matchesStatus) ? 'block' : 'none';
+    });
+}
+
+// دالة إدارة العامل المحسنة
+function showWorkerManagement(workerId) {
+    const workerRow = document.querySelector(`.worker-card[data-worker-id="${workerId}"]`);
+    if (workerRow) {
+        currentManagementWorkerId = workerId;
+        const workerName = workerRow.getAttribute('data-worker-name');
+        const monthlySalary = workerRow.getAttribute('data-worker-monthly-salary');
+        const totalSalary = workerRow.getAttribute('data-worker-total-salary');
+        const startDate = workerRow.getAttribute('data-worker-start-date');
+        
+        // حساب أيام العمل
+        const start = new Date(startDate);
+        const today = new Date();
+        const workDays = Math.floor((today - start) / (1000 * 60 * 60 * 24));
+        
+        // تحديث شريط المعلومات
+        document.getElementById('managementWorkerName').textContent = workerName;
+        document.getElementById('managementBaseSalary').textContent = parseFloat(monthlySalary).toFixed(2) + ' دج';
+        document.getElementById('managementCurrentSalary').textContent = parseFloat(totalSalary).toFixed(2) + ' دج';
+        document.getElementById('managementWorkDays').textContent = workDays;
+        
+        // محتوى نافذة الإدارة
+        const content = `
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- تسجيل غياب -->
+                    <div class="card p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fas fa-user-slash text-red-500"></i>
+                            تسجيل غياب
+                        </h4>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm text-gray-700 mb-1">نوع الغياب</label>
+                                <select class="form-select text-sm" id="absenceType">
+                                    <option value="full">يوم كامل</option>
+                                    <option value="half">نصف يوم</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-700 mb-1">ملاحظات</label>
+                                <textarea class="form-input text-sm" id="absenceNotes" rows="2" placeholder="سبب الغياب..."></textarea>
+                            </div>
+                            <button onclick="recordAbsence(${workerId})" class="w-full btn-warning text-sm py-2">
+                                <i class="fas fa-save ml-2"></i>
+                                تسجيل الغياب
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- تسجيل تسبيق -->
+                    <div class="card p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fas fa-hand-holding-usd text-orange-500"></i>
+                            تسجيل تسبيق
+                        </h4>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm text-gray-700 mb-1">المبلغ (دج)</label>
+                                <input type="number" step="0.01" class="form-input text-sm" placeholder="0.00" id="advanceAmount">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-700 mb-1">ملاحظات</label>
+                                <textarea class="form-input text-sm" id="advanceNotes" rows="2" placeholder="سبب التسبيق..."></textarea>
+                            </div>
+                            <button onclick="recordAdvance(${workerId})" class="w-full btn-danger text-sm py-2">
+                                <i class="fas fa-save ml-2"></i>
+                                تسجيل تسبيق
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- العمل الخارجي والتحفيزات -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- تسجيل عمل خارجي -->
+                    <div class="card p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fas fa-hard-hat text-blue-500"></i>
+                            عمل خارج الورشة
+                        </h4>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm text-gray-700 mb-1">عدد الأيام</label>
+                                <input type="number" class="form-input text-sm" value="1" min="1" id="outsideDays">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-700 mb-1">المبلغ/اليوم (دج)</label>
+                                <input type="number" step="0.01" class="form-input text-sm" value="1000" id="outsideBonusRate">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-700 mb-1">ملاحظات</label>
+                                <textarea class="form-input text-sm" id="outsideNotes" rows="2" placeholder="تفاصيل العمل الخارجي..."></textarea>
+                            </div>
+                            <button onclick="recordOutsideWork(${workerId})" class="w-full btn-info text-sm py-2">
+                                <i class="fas fa-save ml-2"></i>
+                                تسجيل عمل خارجي
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- تسجيل تحفيز -->
+                    <div class="card p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fas fa-gift text-purple-500"></i>
+                            تسجيل تحفيز
+                        </h4>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm text-gray-700 mb-1">المبلغ (دج)</label>
+                                <input type="number" step="0.01" class="form-input text-sm" placeholder="0.00" id="incentiveAmount">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-700 mb-1">ملاحظات</label>
+                                <textarea class="form-input text-sm" id="incentiveNotes" rows="2" placeholder="سبب التحفيز..."></textarea>
+                            </div>
+                            <button onclick="recordIncentive(${workerId})" class="w-full btn-success text-sm py-2">
+                                <i class="fas fa-save ml-2"></i>
+                                تسجيل تحفيز
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- خصم ساعات التأخر -->
+                <div class="card p-4">
+                    <h4 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <i class="fas fa-clock text-yellow-500"></i>
+                        خصم ساعات التأخر
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-700 mb-1">عدد الساعات</label>
+                            <input type="number" step="0.5" class="form-input text-sm" value="0" min="0" id="lateHours">
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="recordLateHours(${workerId})" class="w-full btn-warning text-sm py-2">
+                                <i class="fas fa-save ml-2"></i>
+                                تسجيل التأخر
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('workerManagementContent').innerHTML = content;
+        showModal('workerManagementModal');
+    }
+}
+
+// دوال النظام الجديد
+function showMonthlyCosts() {
+    const content = `
+        <div class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="card p-4 text-center bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                    <div class="text-2xl font-bold">${total_salaries.toFixed(2)}</div>
+                    <div class="text-sm opacity-90">إجمالي المستحق</div>
+                </div>
+                <div class="card p-4 text-center bg-gradient-to-br from-green-500 to-green-600 text-white">
+                    <div class="text-2xl font-bold">${total_advances.toFixed(2)}</div>
+                    <div class="text-sm opacity-90">إجمالي التسبيقات</div>
+                </div>
+                <div class="card p-4 text-center bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                    <div class="text-2xl font-bold">${workers.length}</div>
+                    <div class="text-sm opacity-90">عدد العمال</div>
+                </div>
+            </div>
+
+            <div class="card p-4">
+                <h4 class="font-semibold text-gray-900 mb-4">📈 التكلفة حسب الشهر</h4>
+                <div class="space-y-3" id="monthlyCostsList">
+                    <!-- سيتم تحميل البيانات هنا -->
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('monthlyCostsContent').innerHTML = content;
+    
+    // جلب بيانات التكلفة الشهرية
+    fetch('/api/workers/monthly_cost')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateMonthlyCostsDisplay(data.cost);
+            }
+        });
+    
+    showModal('monthlyCostsModal');
+}
+
+function showQuickEvaluation() {
+    const workerId = document.getElementById('quickEvalWorker').value;
+    const orderId = document.getElementById('quickEvalOrder').value;
+    
+    if (!workerId) {
+        showToast('error', 'يرجى اختيار العامل');
+        return;
+    }
+    
+    const workerRow = document.querySelector(`.worker-card[data-worker-id="${workerId}"]`);
+    const workerName = workerRow.getAttribute('data-worker-name');
+    
+    const content = `
+        <div class="space-y-4">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-user-circle text-blue-600 text-2xl"></i>
+                    <div>
+                        <div class="font-semibold text-blue-800">${workerName}</div>
+                        <div class="text-blue-600 text-sm">التقييم على أساس جودة العمل والالتزام بالوقت</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">🎯 جودة العمل (1-10)</label>
+                    <input type="number" min="1" max="10" value="10" class="form-input" id="qualityScore">
+                    <div class="text-xs text-gray-500 mt-1">دقة وجودة التنفيذ</div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">⏰ الالتزام بالوقت (1-10)</label>
+                    <input type="number" min="1" max="10" value="10" class="form-input" id="timingScore">
+                    <div class="text-xs text-gray-500 mt-1">الانتهاء في الوقت المحدد</div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">📏 الدقة (1-10)</label>
+                    <input type="number" min="1" max="10" value="10" class="form-input" id="accuracyScore">
+                    <div class="text-xs text-gray-500 mt-1">التنفيذ حسب المواصفات</div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">⚡ الكفاءة (1-10)</label>
+                    <input type="number" min="1" max="10" value="10" class="form-input" id="efficiencyScore">
+                    <div class="text-xs text-gray-500 mt-1">سرعة وكفاءة الإنجاز</div>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">💬 ملاحظات التقييم</label>
+                <textarea class="form-input" id="evaluationNotes" rows="3" placeholder="ملاحظات حول أداء العامل..."></textarea>
+            </div>
+            
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div class="flex items-center gap-2 text-yellow-800">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span class="text-sm">سيتم تطبيق المكافآت أو الغرامات تلقائياً حسب نتيجة التقييم</span>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 pt-4">
+                <button type="button" onclick="hideModal('quickEvaluationModal')" class="flex-1 btn-secondary">
+                    إلغاء
+                </button>
+                <button onclick="submitEvaluation(${workerId}, ${orderId || 'null'})" class="flex-1 btn-success">
+                    <i class="fas fa-check ml-2"></i>
+                    تأكيد التقييم
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('quickEvaluationContent').innerHTML = content;
+    showModal('quickEvaluationModal');
+}
+
+function submitEvaluation(workerId, orderId) {
+    const quality = parseInt(document.getElementById('qualityScore').value);
+    const timing = parseInt(document.getElementById('timingScore').value);
+    const accuracy = parseInt(document.getElementById('accuracyScore').value);
+    const efficiency = parseInt(document.getElementById('efficiencyScore').value);
+    const notes = document.getElementById('evaluationNotes').value;
+    
+    const formData = new FormData();
+    formData.append('quality_score', quality);
+    formData.append('timing_score', timing);
+    formData.append('accuracy_score', accuracy);
+    formData.append('efficiency_score', efficiency);
+    formData.append('notes', notes);
+    if (orderId && orderId !== 'null') {
+        formData.append('order_id', orderId);
+    }
+    
+    fetch(`/workers/evaluate/${workerId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', `تم التقييم بنجاح! النقاط: ${data.total_score}/40`);
+            if (data.bonus > 0) {
+                showToast('success', `مكافأة: +${data.bonus} دج`);
+            }
+            if (data.penalty > 0) {
+                showToast('warning', `غرامة: -${data.penalty} دج`);
+            }
+            hideModal('quickEvaluationModal');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showToast('error', 'خطأ: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'حدث خطأ في التقييم');
+    });
+}
+
+function showWorkerMonthlyHistory(workerId) {
+    const workerRow = document.querySelector(`.worker-card[data-worker-id="${workerId}"]`);
+    const workerName = workerRow.getAttribute('data-worker-name');
+    
+    document.getElementById('monthlyHistoryWorkerName').textContent = workerName;
+    
+    fetch(`/workers/${workerId}/monthly_history`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayMonthlyHistory(data.monthly_history, workerName);
+            } else {
+                showToast('error', 'خطأ في جلب السجل الشهري');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'حدث خطأ في جلب البيانات');
+        });
+    
+    showModal('workerMonthlyHistoryModal');
+}
+
+function displayMonthlyHistory(history, workerName) {
+    if (history.length === 0) {
+        document.getElementById('workerMonthlyHistoryContent').innerHTML = `
+            <div class="text-center py-8">
+                <i class="fas fa-history text-4xl text-gray-300 mb-4"></i>
+                <h4 class="text-gray-500">لا توجد سجلات شهرية</h4>
+                <p class="text-gray-400 text-sm mt-2">سيتم إنشاء السجلات تلقائياً عند دفع الرواتب</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الشهر</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">المستحق</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">المدفوع</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">التسبيقات</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الغيابات</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">المكافآت</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+    `;
+    
+    history.forEach(record => {
+        const monthName = getMonthName(record.month);
+        html += `
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-sm text-gray-900">${monthName} ${record.year}</td>
+                <td class="px-4 py-3 text-sm font-medium text-gray-900">${record.total_salary.toFixed(2)} دج</td>
+                <td class="px-4 py-3 text-sm text-green-600">${record.paid_amount.toFixed(2)} دج</td>
+                <td class="px-4 py-3 text-sm text-orange-600">${record.advances.toFixed(2)} دج</td>
+                <td class="px-4 py-3 text-sm text-red-600">${record.absences} يوم</td>
+                <td class="px-4 py-3 text-sm text-purple-600">${record.incentives.toFixed(2)} دج</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="card p-4 text-center">
+                <div class="text-2xl font-bold text-blue-600">
+                    ${history.reduce((sum, record) => sum + record.total_salary, 0).toFixed(2)}
+                </div>
+                <div class="text-sm text-gray-600">إجمالي المستحق</div>
+            </div>
+            <div class="card p-4 text-center">
+                <div class="text-2xl font-bold text-green-600">
+                    ${history.reduce((sum, record) => sum + record.paid_amount, 0).toFixed(2)}
+                </div>
+                <div class="text-sm text-gray-600">إجمالي المدفوع</div>
+            </div>
+            <div class="card p-4 text-center">
+                <div class="text-2xl font-bold text-purple-600">
+                    ${history.reduce((sum, record) => sum + record.incentives, 0).toFixed(2)}
+                </div>
+                <div class="text-sm text-gray-600">إجمالي المكافآت</div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('workerMonthlyHistoryContent').innerHTML = html;
+}
+
+function generateMonthlyReport() {
+    const month = document.getElementById('reportMonth').value;
+    const year = document.getElementById('reportYear').value;
+    
+    // هنا يمكنك إضافة منطق إنشاء التقرير
+    showToast('info', 'جاري إنشاء التقرير الشهري...');
+    
+    // محاكاة إنشاء التقرير
+    setTimeout(() => {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html dir="rtl">
+            <head>
+                <title>تقرير العمال الشهري - ${month}/${year}</title>
+                <style>
+                    body { font-family: Arial; margin: 20px; }
+                    .header { text-align: center; margin-bottom: 30px; }
+                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+                    th { background-color: #f2f2f2; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>تقرير العمال الشهري</h1>
+                    <h2>${getMonthName(parseInt(month))} ${year}</h2>
+                </div>
+                <p>سيتم إضافة محتوى التقرير هنا...</p>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    }, 1000);
+}
+
+// دوال مساعدة
+function getMonthName(month) {
+    const months = [
+        'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+        'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+    ];
+    return months[month - 1] || '';
+}
+
+function updateMonthlyCostsDisplay(costData) {
+    // تحديث عرض بيانات التكلفة
+    document.getElementById('currentMonthCost').textContent = costData.total_salaries + ' دج';
+    document.getElementById('totalPaidCost').textContent = costData.total_paid + ' دج';
+}
+
+// ========== دوال التسجيل المحسنة ==========
+
+function recordAbsence(workerId) {
+    const type = document.getElementById('absenceType').value;
+    const notes = document.getElementById('absenceNotes').value;
+    
+    if (!notes.trim()) {
+        showToast('error', 'يرجى إدخال سبب الغياب');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('type', type);
+    formData.append('notes', notes);
+    
+    fetch(`/workers/record_absence/${workerId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', data.message);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('error', 'خطأ: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'حدث خطأ في تسجيل الغياب');
+    });
+}
+
+// 🆕 دوال إدارة تسجيل الدخول للعمال
+function togglePassword(workerId, password) {
+    const passwordElement = document.getElementById(`password-${workerId}`);
+    if (passwordElement.textContent === '••••••••') {
+        passwordElement.textContent = password;
+    } else {
+        passwordElement.textContent = '••••••••';
+    }
+}
+
+function resetWorkerPassword(workerId) {
+    if (confirm('هل تريد إعادة تعيين كلمة المرور لهذا العامل؟ سيتم إنشاء كلمة مرور جديدة.')) {
+        fetch(`/workers/${workerId}/reset_password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', `تم إعادة تعيين كلمة المرور: ${data.new_password}`);
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                showToast('error', 'خطأ: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'حدث خطأ في إعادة التعيين');
+        });
+    }
+}
+
+function toggleWorkerLogin(workerId, isCurrentlyActive) {
+    const action = isCurrentlyActive ? 'تعطيل' : 'تفعيل';
+    
+    if (confirm(`هل تريد ${action} حساب تسجيل الدخول لهذا العامل؟`)) {
+        fetch(`/workers/${workerId}/toggle_login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: action
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', `تم ${action} حساب تسجيل الدخول بنجاح`);
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showToast('error', 'خطأ: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'حدث خطأ في تغيير الحالة');
+        });
+    }
+}
+
+function recordOutsideWork(workerId) {
+    const days = document.getElementById('outsideDays').value;
+    const rate = document.getElementById('outsideBonusRate').value;
+    const notes = document.getElementById('outsideNotes').value;
+    
+    if (!days || days < 1) {
+        showToast('error', 'يرجى إدخال عدد أيام صحيح');
+        return;
+    }
+    
+    if (!rate || rate < 0) {
+        showToast('error', 'يرجى إدخال مبلغ صحيح');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('days', days);
+    formData.append('bonus_per_day', rate);
+    formData.append('notes', notes || 'عمل خارج الورشة');
+    
+    // استخدام نفس دالة التسبيق مع نوع مختلف
+    fetch(`/workers/record_outside_work/${workerId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', data.message);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('error', 'خطأ: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'حدث خطأ في تسجيل العمل الخارجي');
+    });
+}
+
+function recordAdvance(workerId) {
+    const amount = document.getElementById('advanceAmount').value;
+    const notes = document.getElementById('advanceNotes').value;
+    
+    if (!amount || amount <= 0) {
+        showToast('error', 'يرجى إدخال مبلغ صحيح');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('amount', amount);
+    formData.append('notes', notes || 'تسبيق مالي');
+    
+    fetch(`/workers/record_advance/${workerId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', data.message);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('error', 'خطأ: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'حدث خطأ في تسجيل التسبيق');
+    });
+}
+
+function recordIncentive(workerId) {
+    const amount = document.getElementById('incentiveAmount').value;
+    const notes = document.getElementById('incentiveNotes').value;
+    
+    if (!amount || amount <= 0) {
+        showToast('error', 'يرجى إدخال مبلغ صحيح');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('amount', amount);
+    formData.append('notes', notes || 'مكافأة وتحفيز');
+    
+    // استخدام دالة التسبيق مع نوع مختلف
+    fetch(`/workers/record_incentive/${workerId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', data.message);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('error', 'خطأ: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'حدث خطأ في تسجيل التحفيز');
+    });
+}
+
+function recordLateHours(workerId) {
+    const hours = document.getElementById('lateHours').value;
+    
+    if (!hours || hours <= 0) {
+        showToast('error', 'يرجى إدخال عدد ساعات صحيح');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('hours', hours);
+    
+    fetch(`/workers/record_late_hours/${workerId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', data.message);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('error', 'خطأ: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'حدث خطأ في تسجيل التأخر');
+    });
+}
+
+// دالة إظهار الرسائل الفورية
+function showToast(type, message) {
+    // إزالة أي رسائل سابقة
+    const existingToasts = document.querySelectorAll('.custom-toast');
+    existingToasts.forEach(toast => toast.remove());
+    
+    const toast = document.createElement('div');
+    toast.className = `custom-toast fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-semibold z-50 transition-all duration-300 transform translate-x-0 ${
+        type === 'success' ? 'bg-green-500' : 'bg-red-500'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // إضافة animation
+    setTimeout(() => {
+        toast.classList.add('translate-x-full');
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 3000);
+}
+
+// دالة تعديل العامل
+function editWorker(workerId) {
+    const workerRow = document.querySelector(`.worker-card[data-worker-id="${workerId}"]`);
+    if (workerRow) {
+        currentEditWorkerId = workerId;
+        
+        // استخدام البيانات من السمات data-*
+        document.querySelector('#addWorkerModal input[name="name"]').value = workerRow.getAttribute('data-worker-name');
+        document.querySelector('#addWorkerModal input[name="phone"]').value = workerRow.getAttribute('data-worker-phone');
+        document.querySelector('#addWorkerModal input[name="address"]').value = workerRow.getAttribute('data-worker-address') || '';
+        document.querySelector('#addWorkerModal input[name="id_card"]').value = workerRow.getAttribute('data-worker-id-card') || '';
+        document.querySelector('#addWorkerModal input[name="start_date"]').value = workerRow.getAttribute('data-worker-start-date');
+        document.querySelector('#addWorkerModal input[name="monthly_salary"]').value = workerRow.getAttribute('data-worker-monthly-salary');
+        
+        // تغيير نص المودال
+        document.getElementById('addWorkerModalTitle').textContent = '✏️ تعديل بيانات العامل';
+        document.querySelector('#addWorkerModal button[type="submit"]').innerHTML = '<i class="fas fa-save ml-2"></i> حفظ التعديلات';
+        
+        // تغيير action الخاص بالنموذج
+        const form = document.getElementById('workerForm');
+        form.action = `/workers/edit/${workerId}`;
+        
+        showModal('addWorkerModal');
+    }
+}
+
+// دالة دفع الراتب المحسنة
+function paySalary(workerId, workerName, salaryAmount) {
+    const content = `
+        <div class="space-y-4">
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-user-circle text-green-600 text-2xl"></i>
+                    <div>
+                        <div class="font-semibold text-green-800">${workerName}</div>
+                        <div class="text-green-600">المبلغ المستحق: <span class="font-bold">${parseFloat(salaryAmount).toFixed(2)} دج</span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">💰 المبلغ المدفوع *</label>
+                <input type="number" step="0.01" value="${parseFloat(salaryAmount).toFixed(2)}" class="form-input" id="paidAmount" required>
+                <div class="text-xs text-gray-500 mt-1">سيتم بدء فترة عمل جديدة من تاريخ اليوم</div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">💳 طريقة الدفع</label>
+                <select class="form-select" id="paymentMethod">
+                    <option value="نقدي">نقدي</option>
+                    <option value="تحويل بنكي">تحويل بنكي</option>
+                    <option value="شيك">شيك</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">💬 ملاحظات</label>
+                <textarea class="form-input" id="paymentNotes" rows="2" placeholder="ملاحظات حول عملية الدفع..."></textarea>
+            </div>
+            
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center gap-2 text-blue-800">
+                    <i class="fas fa-info-circle"></i>
+                    <span class="text-sm">سيتم بدء فترة عمل جديدة من تاريخ اليوم وإعادة تعيين جميع الحسابات</span>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 pt-4">
+                <button type="button" onclick="hideModal('paySalaryModal')" class="flex-1 btn-secondary">
+                    إلغاء
+                </button>
+                <button onclick="confirmPayment(${workerId})" class="flex-1 btn-success">
+                    <i class="fas fa-check ml-2"></i>
+                    تأكيد الدفع وبدء فترة جديدة
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('paySalaryContent').innerHTML = content;
+    showModal('paySalaryModal');
+}
+
+// دالة تأكيد الدفع المحسنة
+function confirmPayment(workerId) {
+    const paidAmount = parseFloat(document.getElementById('paidAmount').value);
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    const paymentNotes = document.getElementById('paymentNotes').value;
+    
+    if (!paidAmount || paidAmount <= 0) {
+        showToast('error', 'يرجى إدخال مبلغ صحيح');
+        return;
+    }
+    
+    const workerRow = document.querySelector(`.worker-card[data-worker-id="${workerId}"]`);
+    const currentSalary = parseFloat(workerRow.getAttribute('data-worker-total-salary'));
+    
+    if (paidAmount > currentSalary) {
+        showToast('error', `المبلغ يتجاوز المستحق (${currentSalary.toFixed(2)} دج)`);
+        return;
+    }
+    
+    if (confirm(`هل تريد تأكيد دفع مبلغ ${paidAmount.toFixed(2)} دج؟\n\nسيتم بدء فترة عمل جديدة من تاريخ اليوم.`)) {
+        const formData = new FormData();
+        formData.append('amount', paidAmount);
+        formData.append('payment_method', paymentMethod);
+        formData.append('notes', paymentNotes);
+        
+        fetch(`/workers/pay_salary/${workerId}`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', data.message);
+                hideModal('paySalaryModal');
+                
+                // إعادة تحميل الصفحة لتحديث البيانات
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showToast('error', 'خطأ: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'حدث خطأ في عملية الدفع');
+        });
+    }
+}
+
+// دالة تجميد/تفعيل العامل
+function toggleWorkerStatus(workerId, action) {
+    const workerRow = document.querySelector(`.worker-card[data-worker-id="${workerId}"]`);
+    const workerName = workerRow.getAttribute('data-worker-name');
+    
+    const message = action === 'freeze' 
+        ? `هل تريد تجميد العامل ${workerName}؟\n\nسيتم إيقاف جميع الحسابات المالية لهذا العامل.`
+        : `هل تريد تفعيل العامل ${workerName}؟\n\nسيتم تفعيل الحسابات المالية للعامل.`;
+    
+    if (confirm(message)) {
+        window.location.href = `/workers/toggle_status/${workerId}`;
+    }
+}
+
+// دالة حذف العامل
+function deleteWorker(workerId, workerName) {
+    if (confirm(`هل أنت متأكد من حذف العامل ${workerName}؟\n\nهذا الإجراء لا يمكن التراجع عنه.`)) {
+        window.location.href = `/workers/delete/${workerId}`;
+    }
+}
+
+// دالة عرض سجل العامل المحسنة
+function showWorkerHistory(workerId) {
+    const workerRow = document.querySelector(`.worker-card[data-worker-id="${workerId}"]`);
+    if (workerRow) {
+        currentHistoryWorkerId = workerId;
+        const workerName = workerRow.getAttribute('data-worker-name');
+        
+        document.getElementById('historyWorkerName').textContent = workerName;
+        
+        // استخدام البيانات المحلية من data attributes
+        const workerData = {
+            monthly_salary: parseFloat(workerRow.getAttribute('data-worker-monthly-salary')),
+            absences: parseFloat(workerRow.getAttribute('data-worker-absences')),
+            advances: parseFloat(workerRow.getAttribute('data-worker-advances')),
+            is_active: workerRow.getAttribute('data-worker-is-active') === 'True',
+            outside_work_bonus: parseFloat(workerRow.getAttribute('data-worker-outside-work-bonus')),
+            incentives: parseFloat(workerRow.getAttribute('data-worker-incentives')),
+            late_hours: parseFloat(workerRow.getAttribute('data-worker-late-hours') || 0),
+            outside_work_days: parseInt(workerRow.getAttribute('data-worker-outside-work-days'))
+        };
+        
+        let historyHTML = `
+            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                        <div class="text-gray-600">الراتب الأساسي</div>
+                        <div class="font-bold">${workerData.monthly_salary.toFixed(2)} دج</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-600">إجمالي الغيابات</div>
+                        <div class="font-bold">${workerData.absences} يوم</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-600">إجمالي التسبيقات</div>
+                        <div class="font-bold">${workerData.advances.toFixed(2)} دج</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-600">الحالة</div>
+                        <div class="font-bold ${workerData.is_active ? 'text-green-600' : 'text-red-600'}">
+                            ${workerData.is_active ? 'نشط' : 'مجمد'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="space-y-3">
+                <h4 class="font-semibold text-gray-900 border-b pb-2">📜 ملخص الأداء</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="card p-4 border-l-4 border-l-blue-500 bg-blue-50">
+                        <div class="font-semibold text-gray-900">العمل الخارجي</div>
+                        <div class="text-gray-600 text-sm mt-1">${workerData.outside_work_days} يوم - ${workerData.outside_work_bonus.toFixed(2)} دج</div>
+                    </div>
+                    
+                    <div class="card p-4 border-l-4 border-l-purple-500 bg-purple-50">
+                        <div class="font-semibold text-gray-900">التحفيزات</div>
+                        <div class="text-gray-600 text-sm mt-1">${workerData.incentives.toFixed(2)} دج</div>
+                    </div>
+                    
+                    <div class="card p-4 border-l-4 border-l-orange-500 bg-orange-50">
+                        <div class="font-semibold text-gray-900">ساعات التأخر</div>
+                        <div class="text-gray-600 text-sm mt-1">${workerData.late_hours} ساعة</div>
+                    </div>
+                    
+                    <div class="card p-4 border-l-4 border-l-green-500 bg-green-50">
+                        <div class="font-semibold text-gray-900">المستحق الحالي</div>
+                        <div class="text-gray-600 text-sm mt-1">${parseFloat(workerRow.getAttribute('data-worker-total-salary')).toFixed(2)} دج</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 text-center text-gray-500">
+                <i class="fas fa-info-circle text-xl mb-2"></i>
+                <p>لتسجيل العمليات اليومية، استخدم زر "إدارة الحساب"</p>
+            </div>
+        `;
+        
+        document.getElementById('workerHistoryContent').innerHTML = historyHTML;
+        showModal('workerHistoryModal');
+    }
+}
+
+// دالة طباعة تقرير العامل
+function printWorkerReport(workerId) {
+    const workerRow = document.querySelector(`.worker-card[data-worker-id="${workerId}"]`);
+    if (!workerRow) {
+        showToast('error', 'لم يتم العثور على بيانات العامل');
+        return;
+    }
+    
+    const workerName = workerRow.getAttribute('data-worker-name');
+    const monthlySalary = parseFloat(workerRow.getAttribute('data-worker-monthly-salary'));
+    const absences = parseFloat(workerRow.getAttribute('data-worker-absences'));
+    const advances = parseFloat(workerRow.getAttribute('data-worker-advances'));
+    const outsideBonus = parseFloat(workerRow.getAttribute('data-worker-outside-work-bonus'));
+    const incentives = parseFloat(workerRow.getAttribute('data-worker-incentives'));
+    const totalSalary = parseFloat(workerRow.getAttribute('data-worker-total-salary'));
+    const lateHours = parseFloat(workerRow.getAttribute('data-worker-late-hours') || 0);
+    const outsideDays = parseInt(workerRow.getAttribute('data-worker-outside-work-days'));
+    const startDate = workerRow.getAttribute('data-worker-start-date');
+    const originalStartDate = workerRow.getAttribute('data-worker-original-start-date');
+    
+    const dailySalary = monthlySalary / 30;
+    const absenceDeduction = absences * dailySalary;
+    const lateDeduction = lateHours * 500;
+    
+    const printWindow = window.open('', '_blank');
+    const today = new Date().toLocaleDateString('ar-EG');
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="utf-8" />
+            <title>تقرير العامل - ${workerName}</title>
+            <style>
+                body { 
+                    font-family: 'Arial', sans-serif; 
+                    margin: 0; 
+                    padding: 20px; 
+                    background: white;
+                    color: #333;
+                    line-height: 1.6;
+                }
+                .report { 
+                    max-width: 800px; 
+                    margin: 0 auto; 
+                    background: white;
+                }
+                .header { 
+                    text-align: center; 
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 2px solid #2c5aa0;
+                }
+                .header h1 { 
+                    color: #2c5aa0; 
+                    margin: 0; 
+                    font-size: 28px;
+                }
+                .header .subtitle { 
+                    color: #666; 
+                    margin-top: 5px;
+                }
+                .section { 
+                    margin: 25px 0; 
+                }
+                .section-title { 
+                    background: #2c5aa0; 
+                    color: white; 
+                    padding: 10px 15px; 
+                    margin: 0 -15px 15px -15px;
+                    font-size: 18px;
+                    border-radius: 5px;
+                }
+                .info-grid { 
+                    display: grid; 
+                    grid-template-columns: 1fr 1fr; 
+                    gap: 15px; 
+                    margin: 15px 0; 
+                }
+                .info-item { 
+                    display: flex; 
+                    justify-content: space-between; 
+                    padding: 8px 0;
+                    border-bottom: 1px solid #eee;
+                }
+                .attendance-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr 1fr;
+                    gap: 10px;
+                    margin: 15px 0;
+                    text-align: center;
+                }
+                .attendance-item {
+                    background: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 8px;
+                    border: 1px solid #dee2e6;
+                }
+                .attendance-value {
+                    font-size: 24px;
+                    font-weight: bold;
+                    margin: 5px 0;
+                }
+                .salary-item {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 10px 0;
+                    border-bottom: 1px solid #eee;
+                }
+                .positive { color: #28a745; font-weight: bold; }
+                .negative { color: #dc3545; font-weight: bold; }
+                .total {
+                    background: #2c5aa0;
+                    color: white;
+                    padding: 15px;
+                    border-radius: 8px;
+                    text-align: center;
+                    font-size: 20px;
+                    font-weight: bold;
+                    margin: 20px 0;
+                }
+                .signature {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 30px;
+                    margin-top: 50px;
+                }
+                .signature-box {
+                    text-align: center;
+                    padding: 20px;
+                    border: 2px dashed #6c757d;
+                    border-radius: 8px;
+                }
+                @media print {
+                    body { margin: 0; padding: 0; }
+                    .report { border: none; box-shadow: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="report">
+                <div class="header">
+                    <h1>شركة SOFAZI</h1>
+                    <div class="subtitle">تقرير الأجور الشهرية - ${today}</div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">معلومات العامل</div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span>الاسم الكامل:</span>
+                            <span><strong>${workerName}</strong></span>
+                        </div>
+                        <div class="info-item">
+                            <span>رقم الهاتف:</span>
+                            <span>${workerRow.getAttribute('data-worker-phone')}</span>
+                        </div>
+                        <div class="info-item">
+                            <span>تاريخ البدء:</span>
+                            <span>${startDate}</span>
+                        </div>
+                        <div class="info-item">
+                            <span>مسجل منذ:</span>
+                            <span>${originalStartDate}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">الحضور والغياب</div>
+                    <div class="attendance-grid">
+                        <div class="attendance-item">
+                            <div class="attendance-value" style="color: #dc3545;">${absences}</div>
+                            <div>أيام الغياب</div>
+                        </div>
+                        <div class="attendance-item">
+                            <div class="attendance-value" style="color: #007bff;">${outsideDays}</div>
+                            <div>أيام خارجية</div>
+                        </div>
+                        <div class="attendance-item">
+                            <div class="attendance-value" style="color: #ffc107;">${lateHours}</div>
+                            <div>ساعات تأخر</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">تفاصيل الراتب</div>
+                    <div class="salary-item">
+                        <span>الراتب الأساسي:</span>
+                        <span class="positive">+${monthlySalary.toFixed(2)} دج</span>
+                    </div>
+                    <div class="salary-item">
+                        <span>خصم الغيابات:</span>
+                        <span class="negative">-${absenceDeduction.toFixed(2)} دج</span>
+                    </div>
+                    <div class="salary-item">
+                        <span>مكافأة العمل الخارجي:</span>
+                        <span class="positive">+${outsideBonus.toFixed(2)} دج</span>
+                    </div>
+                    <div class="salary-item">
+                        <span>التحفيزات والمكافآت:</span>
+                        <span class="positive">+${incentives.toFixed(2)} دج</span>
+                    </div>
+                    <div class="salary-item">
+                        <span>التسبيقات:</span>
+                        <span class="negative">-${advances.toFixed(2)} دج</span>
+                    </div>
+                    <div class="salary-item">
+                        <span>خصم التأخر:</span>
+                        <span class="negative">-${lateDeduction.toFixed(2)} دج</span>
+                    </div>
+                    <div class="total">
+                        الصافي المستحق: ${totalSalary.toFixed(2)} دج
+                    </div>
+                </div>
+
+                <div class="signature">
+                    <div class="signature-box">
+                        <div>توقيع العامل</div>
+                        <div style="margin-top: 60px; border-top: 1px solid #333; width: 200px; margin: 40px auto 0;"></div>
+                    </div>
+                    <div class="signature-box">
+                        <div>توقيع المسؤول</div>
+                        <div style="margin-top: 60px; border-top: 1px solid #333; width: 200px; margin: 40px auto 0;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+                window.onload = function() {
+                    window.print();
+                    setTimeout(() => {
+                        window.close();
+                    }, 1000);
+                };
+            <\/script>
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+}
+
+// تهيئة الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    // تعيين تاريخ اليوم كقيمة افتراضية
+    const today = new Date().toISOString().split('T')[0];
+    const startDateInput = document.getElementById('startDateInput');
+    if (startDateInput) {
+        startDateInput.value = today;
+    }
+    
+    // تطبيق التصفية تلقائياً
+    filterWorkers();
+});
+
+// إغلاق المودال عند النقر خارج المحتوى
+document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal')) {
+        hideModal(event.target.id);
+    }
+});
+
+// إغلاق المودال بالزر Escape
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modals = document.querySelectorAll('.modal.active');
+        modals.forEach(modal => {
+            hideModal(modal.id);
+        });
+    }
+});
+</script>
+
+<style>
+/* تنسيقات قسم معلومات تسجيل الدخول */
+.bg-purple-50 {
+    background-color: #faf5ff;
+}
+
+.bg-purple-100 {
+    background-color: #f3e8ff;
+}
+
+.border-purple-200 {
+    border-color: #e9d5ff;
+}
+
+.text-purple-600 {
+    color: #9333ea;
+}
+
+.text-purple-700 {
+    color: #7e22ce;
+}
+
+.text-purple-800 {
+    color: #6b21a8;
+}
+
+.text-purple-900 {
+    color: #581c87;
+}
+
+/* تحسينات للأزرار الصغيرة */
+.btn-warning, .btn-danger, .btn-success {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.btn-warning:hover, .btn-danger:hover, .btn-success:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* تنسيقات النصوص */
+.font-mono {
+    font-family: 'Courier New', monospace;
+}
+
+/* تحسينات للعرض على الجوال */
+@media (max-width: 640px) {
+    .bg-gradient-to-r {
+        padding: 12px;
+    }
+    
+    .flex.items-center.gap-2 {
+        flex-wrap: wrap;
+    }
+}    
+/* تنسيقات البطاقات */
+.worker-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: white;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.worker-card:hover {
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+/* تأثير التجميد */
+.frozen-card {
+    opacity: 0.8;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px dashed #6c757d;
+    position: relative;
+}
+
+.frozen-card::before {
+    content: "🔄 مجمد";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    background: rgba(108, 117, 125, 0.9);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    z-index: 10;
+    font-size: 18px;
+}
+
+/* تنسيق رأس البطاقة */
+.card-header {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* أزرار مخصصة */
+.btn-primary { 
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+.btn-success { 
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+.btn-danger { 
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+.btn-warning { 
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+.btn-info { 
+    background: linear-gradient(135deg, #06b6d4, #0891b2);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+.btn-secondary {
+    background: #6b7280;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.btn-primary:hover { 
+    background: linear-gradient(135deg, #2563eb, #1e40af); 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+.btn-success:hover { 
+    background: linear-gradient(135deg, #059669, #047857); 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+}
+.btn-danger:hover { 
+    background: linear-gradient(135deg, #dc2626, #b91c1c); 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+.btn-warning:hover { 
+    background: linear-gradient(135deg, #d97706, #b45309); 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+}
+.btn-info:hover { 
+    background: linear-gradient(135deg, #0891b2, #0e7490); 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 12px rgba(8, 145, 178, 0.3);
+}
+.btn-secondary:hover { 
+    background: #4b5563; 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 12px rgba(75, 85, 99, 0.3);
+}
+
+/* تخصيص البادجات */
+.badge {
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.badge-success { background: #10b981; color: white; }
+.badge-danger { background: #ef4444; color: white; }
+.badge-warning { background: #f59e0b; color: white; }
+.badge-info { background: #3b82f6; color: white; }
+
+/* تنسيقات النوافذ المنبثقة */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+    animation: fadeIn 0.3s ease;
+}
+
+.modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideIn 0.3s ease;
+    transform: translateY(0);
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+    background: #f3f4f6;
+    color: #374151;
+    transform: rotate(90deg);
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.modal-footer {
+    padding: 20px 24px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: #f8fafc;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* تخصيص شريط التمرير */
+.modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 0 12px 12px 0;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* تنسيقات الرسائل الفورية */
+.custom-toast {
+    animation: toastIn 0.3s ease;
+}
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.custom-toast.translate-x-full {
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+/* تحسين التنسيق للشاشات الصغيرة */
+@media (max-width: 768px) {
+    .worker-card {
+        margin: 0 8px;
+    }
+    
+    .modal-content {
+        margin: 20px;
+        width: calc(100% - 40px);
+    }
+    
+    .grid-cols-2, .grid-cols-3, .grid-cols-4 {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-footer {
+        flex-direction: column;
+    }
+    
+    .modal-footer button {
+        width: 100%;
+    }
+}
+
+/* تحسينات للعرض على الجوال */
+@media (max-width: 640px) {
+    .card-header {
+        padding: 16px;
+    }
+    
+    .modal-body {
+        padding: 16px;
+    }
+    
+    .btn-primary, .btn-success, .btn-danger, .btn-warning, .btn-info, .btn-secondary {
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* تحسينات إضافية */
+.form-input:focus, .form-select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+}
+
+.card {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+</style>
+{% endblock %}

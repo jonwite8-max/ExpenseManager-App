@@ -1,0 +1,764 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <!-- رأس الصفحة -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">💰 نظام الديون الذكي</h1>
+      <p class="text-gray-600 mt-2">إدارة الديون التلقائية واليدوية مع نظام تسديد ذكي</p>
+    </div>
+    
+    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <!-- إجمالي الديون -->
+      <div class="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl px-6 py-4 shadow-lg">
+        <div class="text-sm font-medium">إجمالي الديون المستحقة</div>
+        <div class="text-2xl font-bold mt-1">{{ "%.2f"|format(total_debts) }} <span class="text-sm">دج</span></div>
+      </div>
+      
+      <button onclick="showModal('addDebtModal')" class="btn-success flex items-center gap-2">
+        <i class="fas fa-file-invoice-dollar"></i>
+        إضافة دين يدوي
+      </button>
+    </div>
+  </div>
+
+  <!-- إحصائيات سريعة حسب المصدر -->
+  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+    <div class="card p-4 text-center cursor-pointer hover:shadow-lg transition-all" onclick="filterBySource('all')">
+      <div class="text-2xl font-bold text-blue-600">{{ debts|length }}</div>
+      <div class="text-sm text-gray-600 mt-1">جميع الديون</div>
+    </div>
+    <div class="card p-4 text-center cursor-pointer hover:shadow-lg transition-all" onclick="filterBySource('manual')">
+      <div class="text-2xl font-bold text-purple-600">{{ manual_debts_count }}</div>
+      <div class="text-sm text-gray-600 mt-1">ديون يدوية</div>
+    </div>
+    <div class="card p-4 text-center cursor-pointer hover:shadow-lg transition-all" onclick="filterBySource('expense')">
+      <div class="text-2xl font-bold text-orange-600">{{ expense_debts_count }}</div>
+      <div class="text-sm text-gray-600 mt-1">ديون مصاريف</div>
+    </div>
+    <div class="card p-4 text-center cursor-pointer hover:shadow-lg transition-all" onclick="filterBySource('purchase')">
+      <div class="text-2xl font-bold text-green-600">{{ purchase_debts_count }}</div>
+      <div class="text-sm text-gray-600 mt-1">ديون مشتريات</div>
+    </div>
+    <div class="card p-4 text-center cursor-pointer hover:shadow-lg transition-all" onclick="filterBySource('transport')">
+      <div class="text-2xl font-bold text-teal-600">{{ transport_debts_count }}</div>
+      <div class="text-sm text-gray-600 mt-1">ديون نقل</div>
+    </div>
+  </div>
+
+  <!-- أدوات التبويب -->
+  <div class="card p-2 mb-6">
+    <div class="flex border-b overflow-x-auto">
+      <a href="{{ url_for('debts', status='unpaid', source=source_type) }}" 
+         class="flex-shrink-0 px-6 py-3 border-b-2 font-medium text-sm {% if debt_status == 'unpaid' %}border-red-500 text-red-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} transition-colors">
+        <i class="fas fa-clock mr-2"></i>
+        الديون غير المدفوعة
+        <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full mr-2">{{ debts|selectattr('status', 'equalto', 'unpaid')|list|length }}</span>
+      </a>
+      <a href="{{ url_for('debts', status='paid', source=source_type) }}" 
+         class="flex-shrink-0 px-6 py-3 border-b-2 font-medium text-sm {% if debt_status == 'paid' %}border-green-500 text-green-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} transition-colors">
+        <i class="fas fa-check-circle mr-2"></i>
+        الديون المدفوعة
+        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full mr-2">{{ debts|selectattr('status', 'equalto', 'paid')|list|length }}</span>
+      </a>
+      <a href="{{ url_for('debts', status='all', source=source_type) }}" 
+         class="flex-shrink-0 px-6 py-3 border-b-2 font-medium text-sm {% if debt_status == 'all' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} transition-colors">
+        <i class="fas fa-list mr-2"></i>
+        جميع الديون
+        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mr-2">{{ debts|length }}</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- أدوات البحث والتصفية -->
+  <div class="card p-6 mb-6">
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <!-- بحث -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">🔍 بحث سريع</label>
+        <input 
+          type="text" 
+          id="searchInput"
+          placeholder="ابحث بالاسم، الهاتف، الوصف..."
+          class="form-input"
+        >
+      </div>
+      
+      <!-- تصفية بالمصدر -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">📂 نوع الدين</label>
+        <select id="sourceFilter" class="form-select" onchange="filterBySource(this.value)">
+          <option value="all" {% if source_type == 'all' %}selected{% endif %}>جميع الأنواع</option>
+          <option value="manual" {% if source_type == 'manual' %}selected{% endif %}>ديون يدوية</option>
+          <option value="expense" {% if source_type == 'expense' %}selected{% endif %}>ديون مصاريف</option>
+          <option value="purchase" {% if source_type == 'purchase' %}selected{% endif %}>ديون مشتريات</option>
+          <option value="transport" {% if source_type == 'transport' %}selected{% endif %}>ديون نقل</option>
+        </select>
+      </div>
+      
+      <!-- تصفية بالمبلغ -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">💰 تصفية بالمبلغ</label>
+        <select id="amountFilter" class="form-select">
+          <option value="all">جميع المبالغ</option>
+          <option value="small">أقل من 1000 دج</option>
+          <option value="medium">من 1000 إلى 5000 دج</option>
+          <option value="large">أكثر من 5000 دج</option>
+        </select>
+      </div>
+      
+      <!-- ترتيب -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">📊 ترتيب حسب</label>
+        <select id="sortSelect" class="form-select">
+          <option value="newest">الأحدث أولاً</option>
+          <option value="oldest">الأقدم أولاً</option>
+          <option value="amount_high">الأعلى مبلغاً</option>
+          <option value="amount_low">الأقل مبلغاً</option>
+          <option value="name">الاسم من أ إلى ي</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- جدول الديون -->
+  <div class="table-container">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[1000px]">
+        <thead class="table-header">
+          <tr>
+            <th class="p-4 text-right">#</th>
+            <th class="p-4 text-right">المدين</th>
+            <th class="p-4 text-right">مصدر الدين</th>
+            <th class="p-4 text-right">معلومات الاتصال</th>
+            <th class="p-4 text-right">تفاصيل الدين</th>
+            <th class="p-4 text-right">المبالغ المالية</th>
+            <th class="p-4 text-right">الحالة</th>
+            <th class="p-4 text-right">العمليات</th>
+          </tr>
+        </thead>
+        <tbody id="debtsTable">
+          {% for debt in debts %}
+          <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100 debt-row 
+                     {% if debt.status == 'unpaid' %}bg-red-50{% else %}bg-green-50{% endif %}"
+              data-debt-id="{{ debt.id }}"
+              data-source="{{ debt.source_type }}"
+              data-amount="{{ debt.debt_amount }}"
+              data-search="{{ debt.name }} {{ debt.phone }} {{ debt.address }} {{ debt.description }}"
+              data-status="{{ debt.status }}">
+            <!-- الرقم -->
+            <td class="p-4">
+              <div class="font-mono text-sm text-gray-500">#{{ debt.id }}</div>
+              <div class="text-xs text-gray-400 mt-1">{{ debt.recorded_by }}</div>
+            </td>
+            
+            <!-- المدين -->
+            <td class="p-4">
+              <div class="space-y-2">
+                <div class="font-semibold text-gray-900">{{ debt.name }}</div>
+                <div class="text-xs text-gray-500">بدأ: {{ debt.start_date.strftime('%Y-%m-%d') }}</div>
+                {% if debt.payment_date %}
+                <div class="text-xs text-green-500">دفع: {{ debt.payment_date.strftime('%Y-%m-%d') }}</div>
+                {% endif %}
+              </div>
+            </td>
+            
+            <!-- مصدر الدين -->
+            <td class="p-4">
+              {% if debt.source_type == 'manual' %}
+                <span class="badge badge-purple">دين يدوي</span>
+              {% elif debt.source_type == 'expense' %}
+                <span class="badge badge-orange">مصروف</span>
+              {% elif debt.source_type == 'purchase' %}
+                <span class="badge badge-green">مشتريات</span>
+              {% elif debt.source_type == 'transport' %}
+                <span class="badge badge-teal">نقل</span>
+              {% endif %}
+              <div class="text-xs text-gray-600 mt-1">{{ debt.description|truncate(30) }}</div>
+            </td>
+            
+            <!-- معلومات الاتصال -->
+            <td class="p-4">
+              <div class="space-y-1">
+                {% if debt.phone %}
+                <div class="flex items-center gap-2 text-sm text-gray-600">
+                  <i class="fas fa-phone"></i>
+                  <a href="tel:{{ debt.phone }}" class="hover:text-blue-600">{{ debt.phone }}</a>
+                </div>
+                {% endif %}
+                {% if debt.address %}
+                <div class="flex items-center gap-2 text-sm text-gray-600">
+                  <i class="fas fa-map-marker-alt"></i>
+                  <span class="max-w-xs truncate">{{ debt.address }}</span>
+                </div>
+                {% endif %}
+              </div>
+            </td>
+            
+            <!-- تفاصيل الدين -->
+            <td class="p-4">
+              <div class="space-y-1 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-600">تاريخ البدء:</span>
+                  <span class="font-medium">{{ debt.start_date.strftime('%Y-%m-%d') }}</span>
+                </div>
+                {% if debt.payment_date %}
+                <div class="flex justify-between">
+                  <span class="text-gray-600">تاريخ الدفع:</span>
+                  <span class="font-medium text-green-600">{{ debt.payment_date.strftime('%Y-%m-%d') }}</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between">
+                  <span class="text-gray-600">المدة:</span>
+                  <span class="font-medium">
+                    {% set days = (now.date() - debt.start_date).days %}
+                    {{ days }} يوم
+                  </span>
+                </div>
+                {% if debt.description %}
+                <div class="text-xs text-gray-500 mt-1">{{ debt.description }}</div>
+                {% endif %}
+              </div>
+            </td>
+            
+            <!-- المبالغ المالية -->
+            <td class="p-4">
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-600">المبلغ المدان:</span>
+                  <span class="font-semibold text-red-600">{{ "%.2f"|format(debt.debt_amount) }} دج</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">المبلغ المدفوع:</span>
+                  <span class="font-semibold text-green-600">{{ "%.2f"|format(debt.paid_amount) }} دج</span>
+                </div>
+                <div class="flex justify-between border-t pt-1">
+                  <span class="text-gray-600 font-medium">المتبقي:</span>
+                  <span class="font-bold text-orange-600">{{ "%.2f"|format(debt.remaining_amount) }} دج</span>
+                </div>
+              </div>
+            </td>
+            
+            <!-- الحالة -->
+            <td class="p-4">
+              {% if debt.status == 'paid' %}
+              <span class="badge badge-success">مدفوع</span>
+              {% else %}
+              <span class="badge badge-danger">غير مدفوع</span>
+              {% endif %}
+            </td>
+            
+            <!-- العمليات -->
+            <td class="p-4">
+              <div class="flex flex-col gap-2">
+                <!-- دفع كامل -->
+                {% if debt.status == 'unpaid' %}
+                <a href="{{ url_for('pay_debt', id=debt.id) }}" 
+                   onclick="return confirm('هل تريد تعيين هذا الدين كمدفوع بالكامل؟')"
+                   class="flex items-center gap-2 text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors text-sm">
+                  <i class="fas fa-check-circle text-xs"></i>
+                  دفع كامل
+                </a>
+                {% endif %}
+                
+                <!-- إضافة دفعة -->
+                {% if debt.status == 'unpaid' and debt.remaining_amount > 0 %}
+                <button onclick="addDebtPayment({{ debt.id }}, {{ debt.remaining_amount }}, '{{ debt.name }}')" 
+                        class="flex items-center gap-2 text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors text-sm">
+                  <i class="fas fa-money-bill-wave text-xs"></i>
+                  إضافة دفعة
+                </button>
+                {% endif %}
+                
+                <!-- حذف -->
+                <button onclick="confirmDeleteDebt({{ debt.id }})" 
+                        class="flex items-center gap-2 text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors text-sm">
+                  <i class="fas fa-trash text-xs"></i>
+                  حذف
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="p-12 text-center">
+              <div class="flex flex-col items-center justify-center">
+                <i class="fas fa-money-bill-wave text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-500 mb-2">
+                  {% if debt_status == 'unpaid' %}
+                  لا توجد ديون غير مدفوعة
+                  {% elif debt_status == 'paid' %}
+                  لا توجد ديون مدفوعة
+                  {% else %}
+                  لا توجد ديون مسجلة
+                  {% endif %}
+                </h3>
+                <p class="text-gray-400 mb-6">
+                  {% if debt_status == 'unpaid' %}
+                  جميع الديون الحالية مدفوعة - هذا رائع! 🎉
+                  {% else %}
+                  ابدأ بإضافة أول دين إلى النظام
+                  {% endif %}
+                </p>
+                <button onclick="showModal('addDebtModal')" class="btn-primary flex items-center gap-2">
+                  <i class="fas fa-file-invoice-dollar"></i>
+                  إضافة أول دين
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- الترقيم -->
+  <div class="flex flex-col md:flex-row justify-between items-center mt-6 gap-4">
+    <div class="text-sm text-gray-600">
+      عرض <span id="visibleCount" class="font-semibold">{{ debts|length }}</span> من أصل <span class="font-semibold">{{ debts|length }}</span> دين
+    </div>
+    <div class="flex gap-2">
+      <div class="text-sm text-gray-600">
+        الإجمالي: <span class="font-semibold">{{ "%.2f"|format(total_all_debts) }} دج</span> |
+        المدفوع: <span class="font-semibold text-green-600">{{ "%.2f"|format(total_paid) }} دج</span> |
+        المتبقي: <span class="font-semibold text-red-600">{{ "%.2f"|format(total_debts) }} دج</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- مودال إضافة دين -->
+<div id="addDebtModal" class="modal">
+  <div class="modal-content w-full max-w-2xl">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold text-gray-900">💰 إضافة دين يدوي جديد</h3>
+        <button onclick="hideModal('addDebtModal')" class="text-gray-400 hover:text-gray-600 text-xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form method="POST" action="{{ url_for('add_debt') }}" class="space-y-6" id="debtForm">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- معلومات المدين -->
+          <div class="space-y-4">
+            <h4 class="font-semibold text-gray-900 border-b pb-2">👤 معلومات المدين</h4>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">اسم المدين *</label>
+              <input type="text" name="name" required class="form-input" placeholder="اسم المدين">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">رقم الهاتف</label>
+              <input type="tel" name="phone" class="form-input" placeholder="+213 XXX XX XX XX">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">العنوان</label>
+              <input type="text" name="address" class="form-input" placeholder="عنوان المدين">
+            </div>
+          </div>
+
+          <!-- معلومات الدين -->
+          <div class="space-y-4">
+            <h4 class="font-semibold text-gray-900 border-b pb-2">💳 معلومات الدين</h4>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">المبلغ المدان (دج) *</label>
+              <input type="number" step="0.01" name="debt_amount" required class="form-input" placeholder="0.00" min="0" id="debtAmount" oninput="calculateRemaining()">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">المبلغ المدفوع (دج)</label>
+              <input type="number" step="0.01" name="paid_amount" class="form-input" placeholder="0.00" min="0" value="0" id="paidAmount" oninput="calculateRemaining()">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">تاريخ البدء *</label>
+              <input type="date" name="start_date" required class="form-input" value="{{ now.strftime('%Y-%m-%d') if now else '' }}">
+            </div>
+          </div>
+        </div>
+
+        <!-- وصف الدين -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">📝 وصف الدين</label>
+          <textarea name="description" class="form-input" rows="3" placeholder="وصف تفصيلي للدين..."></textarea>
+        </div>
+
+        <!-- معاينة الحساب -->
+        <div class="bg-red-50 rounded-lg p-4 mt-4">
+          <h4 class="font-semibold text-gray-900 mb-3">🧮 معاينة الحساب</h4>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div class="text-center">
+              <div class="text-gray-600">المبلغ المدان</div>
+              <div id="previewDebtAmount" class="font-semibold text-red-600">0.00 دج</div>
+            </div>
+            <div class="text-center">
+              <div class="text-gray-600">المبلغ المدفوع</div>
+              <div id="previewPaidAmount" class="font-semibold text-green-600">0.00 دج</div>
+            </div>
+            <div class="text-center">
+              <div class="text-gray-600">المبلغ المتبقي</div>
+              <div id="previewRemaining" class="font-bold text-orange-600 text-lg">0.00 دج</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-6 border-t">
+          <button type="button" onclick="hideModal('addDebtModal')" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+            إلغاء
+          </button>
+          <button type="submit" class="btn-success flex items-center gap-2">
+            <i class="fas fa-save"></i>
+            حفظ الدين
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- مودال إضافة دفعة -->
+<div id="addDebtPaymentModal" class="modal">
+  <div class="modal-content w-full max-w-md">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold text-gray-900">💰 إضافة دفعة على الدين</h3>
+        <button onclick="hideModal('addDebtPaymentModal')" class="text-gray-400 hover:text-gray-600 text-xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div id="debtPaymentContent">
+        <!-- سيتم ملؤه بالجافاسكريبت -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================
+// 🔧 المتغيرات العامة
+// ========================
+let currentDebtId = null;
+
+// ========================
+// 🎯 دوال الفلاتر والبحث
+// ========================
+function applyFilters() {
+    const sourceFilter = document.getElementById('sourceFilter').value;
+    const amountFilter = document.getElementById('amountFilter').value;
+    const sortSelect = document.getElementById('sortSelect').value;
+    const searchText = document.getElementById('searchInput').value.toLowerCase();
+    
+    const rows = document.querySelectorAll('.debt-row');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        let show = true;
+        
+        // فلتر المصدر
+        if (sourceFilter !== 'all' && row.getAttribute('data-source') !== sourceFilter) {
+            show = false;
+        }
+        
+        // فلتر المبلغ
+        if (amountFilter !== 'all') {
+            const amount = parseFloat(row.getAttribute('data-amount'));
+            if (amountFilter === 'small' && amount >= 1000) show = false;
+            if (amountFilter === 'medium' && (amount < 1000 || amount > 5000)) show = false;
+            if (amountFilter === 'large' && amount <= 5000) show = false;
+        }
+        
+        // البحث
+        if (searchText) {
+            const searchData = row.getAttribute('data-search').toLowerCase();
+            if (!searchData.includes(searchText)) {
+                show = false;
+            }
+        }
+        
+        row.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
+    });
+    
+    // تحديث العداد
+    document.getElementById('visibleCount').textContent = visibleCount;
+    
+    // الترتيب
+    sortTable(sortSelect);
+}
+
+function filterBySource(sourceType) {
+    window.location.href = `{{ url_for('debts', status=debt_status) }}&source=${sourceType}`;
+}
+
+function sortTable(sortType) {
+    const tbody = document.getElementById('debtsTable');
+    const rows = Array.from(tbody.querySelectorAll('.debt-row:not([style*="display: none"])'));
+    
+    rows.sort((a, b) => {
+        switch(sortType) {
+            case 'newest':
+                return parseInt(b.getAttribute('data-debt-id')) - parseInt(a.getAttribute('data-debt-id'));
+            case 'oldest':
+                return parseInt(a.getAttribute('data-debt-id')) - parseInt(b.getAttribute('data-debt-id'));
+            case 'amount_high':
+                return parseFloat(b.getAttribute('data-amount')) - parseFloat(a.getAttribute('data-amount'));
+            case 'amount_low':
+                return parseFloat(a.getAttribute('data-amount')) - parseFloat(b.getAttribute('data-amount'));
+            case 'name':
+                const nameA = a.querySelector('td:nth-child(2)').textContent.trim();
+                const nameB = b.querySelector('td:nth-child(2)').textContent.trim();
+                return nameA.localeCompare(nameB, 'ar');
+            default:
+                return 0;
+        }
+    });
+    
+    // إعادة ترتيب الصفوف
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+// ========================
+// 💰 دوال الدفعات
+// ========================
+function addDebtPayment(debtId, remainingAmount, debtorName) {
+    currentDebtId = debtId;
+    
+    const content = `
+        <form id="paymentForm" class="space-y-4">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="text-center">
+                    <div class="text-blue-800 font-semibold">المدين: ${debtorName}</div>
+                    <div class="text-blue-800 font-semibold mt-2">المبلغ المتبقي للدفع</div>
+                    <div class="text-2xl font-bold text-blue-600">${remainingAmount.toFixed(2)} دج</div>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">💰 المبلغ المضاف *</label>
+                <input type="number" step="0.01" name="payment_amount" required class="form-input" placeholder="0.00" max="${remainingAmount}" id="paymentAmount">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">📅 تاريخ الدفع *</label>
+                <input type="date" name="payment_date" required class="form-input" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">💬 ملاحظات</label>
+                <textarea name="notes" class="form-input" rows="3" placeholder="ملاحظات حول عملية الدفع..."></textarea>
+            </div>
+            
+            <div class="flex gap-3 pt-4">
+                <button type="button" onclick="hideModal('addDebtPaymentModal')" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                    إلغاء
+                </button>
+                <button type="submit" class="flex-1 btn-success">
+                    <i class="fas fa-check ml-2"></i>
+                    تأكيد الدفع
+                </button>
+            </div>
+        </form>
+    `;
+    
+    document.getElementById('debtPaymentContent').innerHTML = content;
+    
+    // إعداد مستمع النموذج
+    document.getElementById('paymentForm').addEventListener('submit', handlePaymentSubmit);
+    
+    showModal('addDebtPaymentModal');
+}
+
+async function handlePaymentSubmit(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const paymentAmount = parseFloat(formData.get('payment_amount'));
+    
+    if (paymentAmount <= 0) {
+        alert('المبلغ يجب أن يكون أكبر من الصفر');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/debts/pay/${currentDebtId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            hideModal('addDebtPaymentModal');
+            location.reload();
+        } else {
+            alert('خطأ: ' + data.error);
+        }
+    } catch (error) {
+        alert('حدث خطأ أثناء عملية الدفع: ' + error.message);
+    }
+}
+
+// ========================
+// 🗑️ دوال الحذف
+// ========================
+async function confirmDeleteDebt(debtId) {
+    if (!confirm('⚠️ هل أنت متأكد من حذف هذا الدين؟ لا يمكن التراجع عن هذا الإجراء.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/debts/delete/${debtId}`);
+        
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ تم حذف الدين بنجاح');
+            location.reload();
+        } else {
+            alert('❌ خطأ في الحذف: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error deleting debt:', error);
+        alert('❌ حدث خطأ أثناء حذف الدين: ' + error.message);
+    }
+}
+
+// ========================
+// 🔧 دوال مساعدة
+// ========================
+function calculateRemaining() {
+    const debtAmount = parseFloat(document.getElementById('debtAmount').value) || 0;
+    const paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
+    const remaining = debtAmount - paidAmount;
+    
+    document.getElementById('previewDebtAmount').textContent = debtAmount.toFixed(2) + ' دج';
+    document.getElementById('previewPaidAmount').textContent = paidAmount.toFixed(2) + ' دج';
+    document.getElementById('previewRemaining').textContent = remaining.toFixed(2) + ' دج';
+}
+
+function showModal(modalId) {
+    document.getElementById(modalId).classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function hideModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+    document.body.style.overflow = 'auto';
+}
+
+// ========================
+// 📱 التهيئة
+// ========================
+document.addEventListener('DOMContentLoaded', function() {
+    // تعيين تاريخ اليوم كقيمة افتراضية
+    const today = new Date().toISOString().split('T')[0];
+    const dateInputs = document.querySelectorAll('input[type="date"]');
+    dateInputs.forEach(input => {
+        if (!input.value) {
+            input.value = today;
+        }
+    });
+    
+    // حساب الإجمالي الأولي
+    calculateRemaining();
+    
+    // إعداد مستمعي الأحداث للفلاتر
+    const searchInput = document.getElementById('searchInput');
+    const amountFilter = document.getElementById('amountFilter');
+    const sortSelect = document.getElementById('sortSelect');
+    
+    if (searchInput) searchInput.addEventListener('input', applyFilters);
+    if (amountFilter) amountFilter.addEventListener('change', applyFilters);
+    if (sortSelect) sortSelect.addEventListener('change', applyFilters);
+});
+
+// إغلاق المودال عند النقر خارج المحتوى
+document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal')) {
+        hideModal(event.target.id);
+    }
+});
+
+// إغلاق المودال بالزر Escape
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        document.querySelectorAll('.modal.active').forEach(modal => {
+            hideModal(modal.id);
+        });
+    }
+});
+</script>
+
+<style>
+/* تخصيص إضافي لجدول الديون */
+.table-container {
+  max-height: 600px;
+  overflow-y: auto;
+  border-radius: 12px;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  z-index: 10;
+  box-shadow: 0 1px 0 #e2e8f0;
+}
+
+/* بادجات إضافية */
+.badge-purple {
+  background: #e9d5ff;
+  color: #7e22ce;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-orange {
+  background: #fed7aa;
+  color: #ea580c;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-teal {
+  background: #99f6e4;
+  color: #0d9488;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* تحسين التجاوب */
+@media (max-width: 768px) {
+  .table-container {
+    font-size: 0.75rem;
+  }
+  
+  .modal-content {
+    margin: 10px;
+    width: calc(100% - 20px);
+  }
+}
+</style>
+{% endblock %}

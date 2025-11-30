@@ -1,0 +1,2015 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <!-- رأس الصفحة مع أزرار التصنيفات -->
+  <div class="mb-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">💰 نظام إدارة المصاريف والمشتريات</h1>
+        <p class="text-gray-600 mt-2 text-sm md:text-base">تتبع شامل للمصاريف والمشتريات مع تحليل التكاليف</p>
+      </div>
+      
+      <div class="flex items-center gap-2 md:gap-4 flex-wrap">
+        <button onclick="showModal('quickAddModal')" class="btn-success flex items-center gap-2 text-sm md:text-base">
+          <i class="fas fa-bolt"></i>
+          إضافة سريعة
+        </button>
+        <button onclick="showModal('addExpenseModal')" class="btn-primary flex items-center gap-2 text-sm md:text-base">
+          <i class="fas fa-plus"></i>
+          إضافة مصروف
+        </button>
+      </div>
+    </div>
+
+    <!-- أزرار التصنيفات السريعة في الشريط العلوي -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 md:gap-3">
+      {% for category in categories %}
+      <button onclick="quickCategoryAction({{ category.id }})" 
+              class="category-btn p-3 text-center hover:shadow-lg transition-all duration-300 rounded-lg border-2"
+              data-category-id="{{ category.id }}"
+              style="background: {{ category.color }}20; border-color: {{ category.color }}40;">
+        <div class="text-lg md:text-xl mb-1" style="color: {{ category.color }}">{{ category.icon }}</div>
+        <div class="font-semibold text-gray-900 text-xs md:text-sm">{{ category.name }}</div>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- الإحصائيات السريعة -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-6">
+    <div class="card p-3 md:p-4 text-center">
+      <div class="text-lg md:text-2xl font-bold text-blue-600">{{ "%.2f"|format(total_amount) }}</div>
+      <div class="text-xs md:text-sm text-gray-600 mt-1">إجمالي المصروفات</div>
+    </div>
+    <div class="card p-3 md:p-4 text-center">
+      <div class="text-lg md:text-2xl font-bold text-green-600">{{ "%.2f"|format(paid_amount) }}</div>
+      <div class="text-xs md:text-sm text-gray-600 mt-1">مدفوعة</div>
+    </div>
+    <div class="card p-3 md:p-4 text-center">
+      <div class="text-lg md:text-2xl font-bold text-red-600">{{ "%.2f"|format(unpaid_amount) }}</div>
+      <div class="text-xs md:text-sm text-gray-600 mt-1">غير مدفوعة</div>
+    </div>
+    <div class="card p-3 md:p-4 text-center">
+      <div class="text-lg md:text-2xl font-bold text-purple-600">{{ expenses|length }}</div>
+      <div class="text-xs md:text-sm text-gray-600 mt-1">عدد العمليات</div>
+    </div>
+    <div class="card p-3 md:p-4 text-center col-span-2 md:col-span-1">
+      <div class="text-lg md:text-2xl font-bold text-orange-600" id="myPurchasesTotal">0</div>
+      <div class="text-xs md:text-sm text-gray-600 mt-1">مشترياتي</div>
+    </div>
+  </div>
+
+  <!-- أدوات التصفية المستقلة -->
+  <div class="card p-4 md:p-6 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <!-- تصفية حسب النوع -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">💰 حالة الدفع</label>
+        <select id="paymentFilter" class="form-select w-full text-sm" onchange="applyFilters()">
+          <option value="all">جميع الحالات</option>
+          <option value="paid">مدفوعة فقط</option>
+          <option value="unpaid">غير مدفوعة فقط</option>
+          <option value="partial">مدفوعة جزئياً</option>
+        </select>
+      </div>
+      
+      <!-- تصفية حسب التصنيف -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">📁 التصنيف</label>
+        <select id="categoryFilter" class="form-select w-full text-sm" onchange="onCategoryFilterChange()">
+          <option value="all">جميع التصنيفات</option>
+          {% for category in categories %}
+          <option value="{{ category.id }}">{{ category.icon }} {{ category.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <!-- تصفية حسب المنتج -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">📦 المنتج</label>
+        <select id="productFilter" class="form-select w-full text-sm" onchange="applyFilters()">
+          <option value="all">جميع المنتجات</option>
+        </select>
+      </div>
+      
+      <!-- تصفية حسب المورد -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">🏢 المورد</label>
+        <select id="supplierFilter" class="form-select w-full text-sm" onchange="applyFilters()">
+          <option value="all">جميع الموردين</option>
+          {% for supplier in suppliers %}
+          <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- البحث الفوري -->
+    <div class="mt-4">
+      <label class="block text-sm font-medium text-gray-700 mb-2">🔍 بحث فوري في الوصف والملاحظات</label>
+      <input type="text" id="searchInput" class="form-input w-full text-sm" placeholder="اكتب للبحث الفوري..." oninput="applyFilters()">
+    </div>
+
+    <!-- تصفية حسب التاريخ -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">📅 من تاريخ</label>
+        <input type="date" id="dateFrom" class="form-input w-full text-sm" onchange="applyFilters()">
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">📅 إلى تاريخ</label>
+        <input type="date" id="dateTo" class="form-input w-full text-sm" onchange="applyFilters()">
+      </div>
+    </div>
+  </div>
+
+  <!-- جدول المصروفات -->
+  <div class="table-container">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[800px] md:min-w-[1000px]">
+        <thead class="table-header">
+          <tr>
+            <th class="p-3 md:p-4 text-right text-sm">#</th>
+            <th class="p-3 md:p-4 text-right text-sm">التصنيف</th>
+            <th class="p-3 md:p-4 text-right text-sm">المنتج/الوصف</th>
+            <th class="p-3 md:p-4 text-right text-sm">المورد</th>
+            <th class="p-3 md:p-4 text-right text-sm">السعر والكمية</th>
+            <th class="p-3 md:p-4 text-right text-sm">التاريخ</th>
+            <th class="p-3 md:p-4 text-right text-sm">الحالة</th>
+            <th class="p-3 md:p-4 text-right text-sm">العمليات</th>
+          </tr>
+        </thead>
+        <tbody id="expensesTable">
+          {% for expense in expenses %}
+          <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100 expense-row 
+           {% if expense.payment_status == 'paid' %}bg-green-50{% elif expense.payment_status == 'partial' %}bg-orange-50{% else %}bg-red-50{% endif %}" 
+    data-expense-id="{{ expense.id }}"
+    data-category="{{ expense.category_id }}"
+    data-product="{{ expense.description|lower }}"
+    data-supplier="{{ expense.supplier_id }}"
+    data-payment="{{ expense.payment_status }}"
+    data-date="{{ expense.purchase_date.strftime('%Y-%m-%d') }}"
+    data-search="{{ expense.description }} {{ expense.notes }}"
+    data-paid="{{ expense.paid_amount }}"
+    data-total="{{ expense.total_amount }}">
+            <td class="p-3 md:p-4">
+              <div class="font-mono text-xs md:text-sm text-gray-500">#{{ expense.id }}</div>
+              {% if expense.receipts %}
+              <div class="mt-1">
+                <button onclick="viewReceipts({{ expense.id }}, '{{ expense.description }}')" 
+        class="text-green-600 hover:text-green-800 p-1 md:p-2 rounded-lg hover:bg-green-50 transition-colors text-xs md:text-sm"
+        title="معاينة الفواتير">
+    <i class="fas fa-receipt"></i>
+</button>
+              </div>
+              {% endif %}
+            </td>
+            
+            <td class="p-3 md:p-4">
+              <span class="inline-flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
+                {{ expense.category.icon if expense.category else '📦' }}
+                <span class="hidden md:inline">{{ expense.category.name if expense.category else 'عام' }}</span>
+              </span>
+            </td>
+            
+            <td class="p-3 md:p-4">
+              <div class="font-medium text-gray-900 text-sm">{{ expense.description }}</div>
+              {% if expense.notes %}
+              <div class="text-xs text-gray-500 mt-1">{{ expense.notes }}</div>
+              {% endif %}
+            </td>
+            
+            <td class="p-3 md:p-4">
+              <div class="text-sm text-gray-700">
+                {% if expense.supplier %}
+                {{ expense.supplier.name }}
+                {% else %}
+                <span class="text-gray-400">-</span>
+                {% endif %}
+              </div>
+            </td>
+            
+            <td class="p-3">
+  <div class="space-y-2 text-xs">
+    <!-- المبلغ الإجمالي -->
+    <div class="flex justify-between items-center">
+      <span class="text-gray-600 font-medium">الإجمالي:</span>
+      <span class="font-bold text-blue-700">{{ "%.2f"|format(expense.total_amount) }} دج</span>
+    </div>
+
+    <!-- شريط التقدم المدمج -->
+    <div class="space-y-1">
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600">التقدم</span>
+        <span class="font-bold text-xs 
+            {% if expense.paid_amount >= expense.total_amount %}text-green-600
+            {% elif expense.paid_amount > 0 %}text-orange-600
+            {% else %}text-red-600{% endif %}">
+          {{ ((expense.paid_amount / expense.total_amount) * 100)|round|int }}%
+        </span>
+      </div>
+      
+      <!-- شريط التقدم -->
+      <div class="w-full bg-gray-200 rounded-full h-2">
+        <div class="h-2 rounded-full transition-all duration-300 
+            {% if expense.paid_amount >= expense.total_amount %}bg-green-500
+            {% elif expense.paid_amount > 0 %}bg-orange-500
+            {% else %}bg-red-500{% endif %}" 
+             style="width: {{ ((expense.paid_amount / expense.total_amount) * 100)|round|int }}%">
+        </div>
+      </div>
+    </div>
+
+    <!-- المبالغ المدفوعة والمتبقية -->
+    <div class="grid grid-cols-2 gap-1 text-xs">
+      <div class="text-center bg-green-50 rounded p-1">
+        <div class="text-green-700 font-bold">{{ "%.2f"|format(expense.paid_amount) }} دج</div>
+        <div class="text-green-600 text-2xs">مدفوع</div>
+      </div>
+      <div class="text-center bg-red-50 rounded p-1">
+        <div class="text-red-700 font-bold">{{ "%.2f"|format(expense.total_amount - expense.paid_amount) }} دج</div>
+        <div class="text-red-600 text-2xs">متبقي</div>
+      </div>
+    </div>
+
+    <!-- حالة الدفع المدمجة -->
+    <div class="text-center">
+      <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium
+          {% if expense.paid_amount >= expense.total_amount %}bg-green-100 text-green-800
+          {% elif expense.paid_amount > 0 %}bg-orange-100 text-orange-800
+          {% else %}bg-red-100 text-red-800{% endif %}">
+        {% if expense.paid_amount >= expense.total_amount %}
+          <i class="fas fa-check-circle text-2xs"></i>
+          <span>مدفوع</span>
+        {% elif expense.paid_amount > 0 %}
+          <i class="fas fa-clock text-2xs"></i>
+          <span>جزئي</span>
+        {% else %}
+          <i class="fas fa-exclamation-circle text-2xs"></i>
+          <span>غير مدفوع</span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+</td>
+            
+            <td class="p-3 md:p-4">
+              <div class="text-sm text-gray-700">{{ expense.purchase_date.strftime('%Y-%m-%d') }}</div>
+              <div class="text-xs text-gray-500">{{ expense.payment_method }}</div>
+            </td>
+            
+            <td class="p-3 md:p-4">
+              {% if expense.payment_status == 'paid' %}
+              <span class="badge badge-success text-xs">مدفوعة</span>
+              {% elif expense.payment_status == 'partial' %}
+              <span class="badge badge-warning text-xs">مدفوع جزئياً</span>
+              {% else %}
+              <span class="badge badge-danger text-xs">غير مدفوعة</span>
+              {% endif %}
+            </td>
+            
+            <td class="p-3 md:p-4">
+              <div class="flex flex-col md:flex-row gap-1 md:gap-2">
+                 <button onclick="viewReceipts({{ expense.id }}, '{{ expense.description }}')" 
+        class="text-green-600 hover:text-green-800 p-1 md:p-2 rounded-lg hover:bg-green-50 transition-colors text-xs md:text-sm"
+        title="معاينة الفواتير">
+    <i class="fas fa-receipt"></i>
+</button>
+                <button onclick="editExpense({{ expense.id }})" class="text-blue-600 hover:text-blue-800 p-1 md:p-2 rounded-lg hover:bg-blue-50 transition-colors text-xs md:text-sm">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="confirmDeleteExpense({{ expense.id }})" 
+        class="text-red-600 hover:text-red-800 p-1 md:p-2 rounded-lg hover:bg-red-50 transition-colors text-xs md:text-sm">
+    <i class="fas fa-trash"></i>
+</button>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="p-8 md:p-12 text-center">
+              <div class="flex flex-col items-center justify-center">
+                <i class="fas fa-receipt text-4xl md:text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-lg md:text-xl font-semibold text-gray-500 mb-2">لا توجد مصروفات مسجلة</h3>
+                <p class="text-gray-400 mb-4 md:mb-6 text-sm md:text-base">ابدأ بإضافة أول مصروف أو عملية شراء</p>
+                <button onclick="showModal('addExpenseModal')" class="btn-primary flex items-center gap-2 text-sm md:text-base">
+                  <i class="fas fa-plus"></i>
+                  إضافة أول مصروف
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- الترقيم -->
+  <div class="flex flex-col md:flex-row justify-between items-center mt-6 gap-4">
+    <div class="text-sm text-gray-600">
+      عرض <span id="visibleCount" class="font-semibold">{{ expenses|length }}</span> من أصل <span class="font-semibold">{{ expenses|length }}</span> عملية
+    </div>
+    <div class="pagination flex-wrap">
+      <button class="page-item text-sm">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+      <button class="page-item active text-sm">1</button>
+      <button class="page-item text-sm">2</button>
+      <button class="page-item text-sm">3</button>
+      <button class="page-item text-sm">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- مودال الإضافة السريعة -->
+<div id="quickAddModal" class="modal">
+  <div class="modal-content w-full max-w-md md:max-w-lg">
+    <div class="modal-header">
+      <h3 class="text-lg md:text-xl font-bold text-gray-900">⚡ إضافة مصروف سريع</h3>
+      <button onclick="hideModal('quickAddModal')" class="modal-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="p-4 md:p-6">
+      <form method="POST" action="{{ url_for('quick_add_expense') }}" class="space-y-4" id="quickAddForm" enctype="multipart/form-data">
+       
+       <!-- الطلبية المرتبطة -->
+<div class="mb-4">
+    <label class="block text-sm font-medium text-gray-700 mb-2">الطلبية المرتبطة (اختياري)</label>
+    <select name="order_id" class="form-select">
+    <option value="">-- اختر الطلبية --</option>
+    {% for order in orders %}
+        <option value="{{ order.id }}">#{{ order.id }} - {{ order.name }} - {{ order.product }}</option>
+    {% endfor %}
+</select>
+</div>
+       
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">📁 التصنيف</label>
+          <select name="category_id" class="form-select w-full text-sm" required onchange="loadCategoryProducts(this.value, 'quick')">
+            <option value="">اختر التصنيف</option>
+            {% for category in categories %}
+            <option value="{{ category.id }}">{{ category.icon }} {{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">📝 اسم المنتج</label>
+          <input type="text" 
+                 name="description" 
+                 class="form-input w-full text-sm" 
+                 placeholder="اكتب اسم المنتج أو اختر من القائمة"
+                 list="quickProductsList"
+                 id="quickProductInput"
+                 oninput="showQuickProductSuggestions(this.value)"
+                 required>
+          <datalist id="quickProductsList">
+            <!-- سيتم ملؤها بالمنتجات -->
+          </datalist>
+          <div id="quickProductSuggestions" class="hidden mt-2 border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
+            <!-- اقتراحات المنتجات -->
+          </div>
+          <div class="text-xs text-gray-500 mt-1">ابدأ بكتابة اسم المنتج لرؤية الاقتراحات أو أضف منتجاً جديداً</div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3 md:gap-4">
+    <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">💰 المبلغ (دج)</label>
+        <input type="number" step="0.01" name="amount" class="form-input w-full text-sm" placeholder="0.00" required id="quickAmount" oninput="calculateQuickTotal()">
+    </div>
+    
+    <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">🔢 الكمية</label>
+        <input type="number" name="quantity" class="form-input w-full text-sm" value="1" required id="quickQuantity" oninput="calculateQuickTotal()">
+    </div>
+</div>
+
+<!-- حالة الدفع -->
+<div>
+    <label class="block text-sm font-medium text-gray-700 mb-2">💳 حالة الدفع</label>
+    <select name="payment_status" class="form-select w-full text-sm" onchange="toggleQuickPaymentFields()" id="quickPaymentStatus">
+        <option value="paid">مدفوع</option>
+        <option value="unpaid">غير مدفوع (إنشاء دين)</option>
+        <option value="partial">مدفوع جزئياً</option>
+    </select>
+</div>
+
+<!-- حقل المبلغ المدفوع -->
+<div id="quickPaidAmountField" class="hidden">
+    <label class="block text-sm font-medium text-gray-700 mb-2">💵 المبلغ المدفوع (دج)</label>
+    <input type="number" step="0.01" name="paid_amount" class="form-input w-full text-sm" placeholder="0.00" value="0" id="quickPaidAmount" oninput="calculateQuickRemaining()">
+</div>
+
+<!-- عرض المتبقي -->
+<div id="quickRemainingDisplay" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-2 hidden">
+    <div class="flex justify-between items-center text-sm">
+        <span class="text-yellow-800">المبلغ المتبقي:</span>
+        <span class="font-bold text-yellow-600" id="quickRemainingAmount">0.00 دج</span>
+    </div>
+</div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">🏢 المورد</label>
+          <div class="flex gap-2">
+            <select name="supplier_id" class="form-select flex-1 text-sm" id="quickSupplierSelect">
+              <option value="">-- اختر المورد --</option>
+              {% for supplier in suppliers %}
+              <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" onclick="showAddSupplierModal('quick')" class="btn-secondary text-xs px-3">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">📝 ملاحظات</label>
+          <textarea name="notes" class="form-input w-full text-sm" rows="2" placeholder="ملاحظات إضافية"></textarea>
+        </div>
+
+<!-- فاتورة المصروف -->
+<div>
+    <label class="block text-sm font-medium text-gray-700 mb-2">📸 فاتورة المصروف (اختياري)</label>
+    <div class="flex gap-2">
+        <input type="file" name="receipt" id="quickReceipt" accept="image/*" class="hidden">
+        <button type="button" onclick="document.getElementById('quickReceipt').click()" class="btn-secondary flex-1 text-sm">
+            <i class="fas fa-upload"></i> رفع صورة
+        </button>
+        <button type="button" onclick="openCamera('quick')" class="btn-warning flex-1 text-sm">
+            <i class="fas fa-camera"></i> تصوير
+        </button>
+    </div>
+    <div id="quickReceiptPreview" class="mt-2 hidden"></div>
+</div>
+
+        <div class="flex justify-end gap-2 md:gap-3 pt-4 border-t">
+          <button type="button" onclick="hideModal('quickAddModal')" class="btn-secondary text-sm">إلغاء</button>
+          <button type="submit" class="btn-success text-sm">إضافة المصروف</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- مودال إضافة مورد سريع -->
+<div id="addSupplierModal" class="modal">
+  <div class="modal-content w-full max-w-md">
+    <div class="modal-header">
+      <h3 class="text-lg md:text-xl font-bold text-gray-900">🏢 إضافة مورد جديد</h3>
+      <button onclick="hideModal('addSupplierModal')" class="modal-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <form method="POST" action="{{ url_for('add_supplier') }}" class="p-4 md:p-6 space-y-4" id="supplierForm">
+      <input type="hidden" id="supplierModalType" value="">
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">اسم المورد *</label>
+        <input type="text" name="name" class="form-input w-full text-sm" placeholder="اسم المورد" required>
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">رقم الهاتف</label>
+        <input type="tel" name="phone" class="form-input w-full text-sm" placeholder="رقم الهاتف">
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">العنوان</label>
+        <textarea name="address" class="form-input w-full text-sm" rows="2" placeholder="عنوان المورد"></textarea>
+      </div>
+      
+      <div class="flex justify-end gap-2 md:gap-3 pt-4 border-t">
+        <button type="button" onclick="hideModal('addSupplierModal')" class="btn-secondary text-sm">إلغاء</button>
+        <button type="submit" class="btn-success text-sm">حفظ المورد</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- مودال إضافة مصروف كامل -->
+<div id="addExpenseModal" class="modal">
+  <div class="modal-content w-full max-w-4xl">
+    <div class="modal-header">
+      <h3 class="text-lg md:text-xl font-bold text-gray-900">💰 إضافة مصروف جديد</h3>
+      <button onclick="hideModal('addExpenseModal')" class="modal-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <form method="POST" action="{{ url_for('add_expense') }}" class="p-4 md:p-6 space-y-4 md:space-y-6" id="expenseForm" enctype="multipart/form-data">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        
+        <!-- العمود الأول -->
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">📁 التصنيف *</label>
+            <select name="category_id" class="form-select w-full text-sm" required onchange="loadCategoryProducts(this.value, 'full')" id="fullCategorySelect">
+              <option value="">اختر التصنيف</option>
+              {% for category in categories %}
+              <option value="{{ category.id }}">{{ category.icon }} {{ category.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <!-- الطلبية المرتبطة -->
+<div class="mb-4">
+    <select name="order_id" class="form-select">
+    <option value="">-- اختر الطلبية --</option>
+    {% for order in orders %}
+        <option value="{{ order.id }}">#{{ order.id }} - {{ order.name }} - {{ order.product }}</option>
+    {% endfor %}
+</select>
+</div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">📝 اسم المنتج *</label>
+            <input type="text" 
+                   name="description" 
+                   class="form-input w-full text-sm" 
+                   placeholder="اكتب اسم المنتج أو اختر من القائمة"
+                   list="fullProductsList"
+                   id="fullProductInput"
+                   oninput="showFullProductSuggestions(this.value)"
+                   required>
+            <datalist id="fullProductsList">
+              <!-- سيتم ملؤها بالمنتجات -->
+            </datalist>
+            <div id="fullProductSuggestions" class="hidden mt-2 border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
+              <!-- اقتراحات المنتجات -->
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">💰 سعر الوحدة (دج) *</label>
+              <input type="number" step="0.01" name="unit_price" class="form-input w-full text-sm" placeholder="0.00" required id="unitPrice" oninput="calculateTotal()">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">🔢 الكمية *</label>
+              <input type="number" name="quantity" class="form-input w-full text-sm" value="1" required id="quantity" oninput="calculateTotal()">
+            </div>
+          </div>
+        </div>
+        
+        <!-- العمود الثاني -->
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">🏢 المورد</label>
+            <div class="flex gap-2">
+              <select name="supplier_id" class="form-select flex-1 text-sm" id="fullSupplierSelect">
+                <option value="">-- اختر المورد --</option>
+                {% for supplier in suppliers %}
+                <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                {% endfor %}
+              </select>
+              <button type="button" onclick="showAddSupplierModal('full')" class="btn-secondary text-xs px-3">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">📅 تاريخ الشراء *</label>
+            <input type="date" name="purchase_date" class="form-input w-full text-sm" value="{{ now.strftime('%Y-%m-%d') if now else '' }}" required>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">💰 حالة الدفع</label>
+              <select name="payment_status" class="form-select w-full text-sm" id="paymentStatus" onchange="togglePaymentFields()">
+                <option value="paid">مدفوعة</option>
+                <option value="unpaid">غير مدفوعة</option>
+                <option value="partial">مدفوعة جزئياً</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">💳 طريقة الدفع</label>
+              <select name="payment_method" class="form-select w-full text-sm">
+                <option value="cash">نقدي</option>
+                <option value="check">شيك</option>
+                <option value="transfer">تحويل</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- فاتورة المصروف -->
+<div>
+    <label class="block text-sm font-medium text-gray-700 mb-2">📸 فاتورة المصروف (اختياري)</label>
+    <div class="flex gap-2">
+        <input type="file" name="receipt" id="fullReceipt" accept="image/*" class="hidden">
+        <button type="button" onclick="document.getElementById('fullReceipt').click()" class="btn-secondary flex-1 text-sm">
+            <i class="fas fa-upload"></i> رفع صورة
+        </button>
+        <button type="button" onclick="openCamera('full')" class="btn-warning flex-1 text-sm">
+            <i class="fas fa-camera"></i> تصوير
+        </button>
+    </div>
+    <div id="fullReceiptPreview" class="mt-2 hidden"></div>
+</div>
+
+      <!-- معاينة الحساب -->
+      <div class="bg-blue-50 rounded-lg p-3 md:p-4 mt-4">
+        <h4 class="font-semibold text-gray-900 mb-2 text-sm md:text-base">🧮 معاينة الحساب</h4>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-xs md:text-sm">
+          <div class="text-center">
+            <div class="text-gray-600">سعر الوحدة</div>
+            <div id="previewPrice" class="font-semibold text-green-600">0.00 دج</div>
+          </div>
+          <div class="text-center">
+            <div class="text-gray-600">الكمية</div>
+            <div id="previewQuantity" class="font-semibold text-blue-600">1</div>
+          </div>
+          <div class="text-center">
+            <div class="text-gray-600">الإجمالي</div>
+            <div id="previewTotal" class="font-bold text-purple-600 text-sm md:text-base">0.00 دج</div>
+          </div>
+          <div class="text-center">
+            <div class="text-gray-600">الحالة</div>
+            <div id="previewStatus" class="font-semibold text-orange-600">مدفوعة</div>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">📝 ملاحظات إضافية</label>
+        <textarea name="notes" class="form-input w-full text-sm" rows="2" placeholder="ملاحظات إضافية حول المصروف..."></textarea>
+      </div>
+      
+      <div class="flex items-center">
+        <input type="checkbox" name="save_to_price_history" value="yes" id="savePriceHistory" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+        <label for="savePriceHistory" class="ml-2 text-sm text-gray-700">💾 حفظ في سجل أسعار المنتجات</label>
+      </div>
+      
+      <div class="flex justify-end gap-2 md:gap-3 pt-4 border-t">
+        <button type="button" onclick="hideModal('addExpenseModal')" class="btn-secondary text-sm">إلغاء</button>
+        <button type="submit" class="btn-success text-sm">إضافة المصروف</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- مودال تعديل المصروف -->
+<div id="editExpenseModal" class="modal">
+  <div class="modal-content w-full max-w-4xl">
+    <div class="modal-header">
+      <h3 class="text-lg md:text-xl font-bold text-gray-900">✏️ تعديل المصروف</h3>
+      <button onclick="hideModal('editExpenseModal')" class="modal-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <form method="POST" action="" class="p-4 md:p-6 space-y-4 md:space-y-6" id="editExpenseForm">
+      <input type="hidden" name="expense_id" id="editExpenseId">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <!-- العمود الأول -->
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">📁 التصنيف *</label>
+            <select name="category_id" class="form-select w-full text-sm" required id="editCategoryId">
+              {% for category in categories %}
+              <option value="{{ category.id }}">{{ category.icon }} {{ category.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">📝 الوصف *</label>
+            <input type="text" name="description" class="form-input w-full text-sm" id="editDescription" required>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">💰 سعر الوحدة (دج) *</label>
+              <input type="number" step="0.01" name="unit_price" class="form-input w-full text-sm" id="editUnitPrice" required oninput="calculateEditTotal()">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">🔢 الكمية *</label>
+              <input type="number" name="quantity" class="form-input w-full text-sm" id="editQuantity" required oninput="calculateEditTotal()">
+            </div>
+          </div>
+        </div>
+        
+        <!-- العمود الثاني -->
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">🏢 المورد</label>
+            <select name="supplier_id" class="form-select w-full text-sm" id="editSupplierId">
+              <option value="">-- اختر المورد --</option>
+              {% for supplier in suppliers %}
+              <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">📅 تاريخ الشراء *</label>
+            <input type="date" name="purchase_date" class="form-input w-full text-sm" id="editPurchaseDate" required>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3 md:gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">💰 حالة الدفع</label>
+              <select name="payment_status" class="form-select w-full text-sm" id="editPaymentStatus">
+                <option value="paid">مدفوعة</option>
+                <option value="unpaid">غير مدفوعة</option>
+                <option value="partial">مدفوعة جزئياً</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">💳 طريقة الدفع</label>
+              <select name="payment_method" class="form-select w-full text-sm" id="editPaymentMethod">
+                <option value="cash">نقدي</option>
+                <option value="check">شيك</option>
+                <option value="transfer">تحويل</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- معاينة الحساب -->
+      <div class="bg-blue-50 rounded-lg p-3 md:p-4 mt-4">
+        <h4 class="font-semibold text-gray-900 mb-2 text-sm md:text-base">🧮 معاينة الحساب</h4>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-xs md:text-sm">
+          <div class="text-center">
+            <div class="text-gray-600">سعر الوحدة</div>
+            <div id="editPreviewPrice" class="font-semibold text-green-600">0.00 دج</div>
+          </div>
+          <div class="text-center">
+            <div class="text-gray-600">الكمية</div>
+            <div id="editPreviewQuantity" class="font-semibold text-blue-600">1</div>
+          </div>
+          <div class="text-center">
+            <div class="text-gray-600">الإجمالي</div>
+            <div id="editPreviewTotal" class="font-bold text-purple-600 text-sm md:text-base">0.00 دج</div>
+          </div>
+          <div class="text-center">
+            <div class="text-gray-600">الحالة</div>
+            <div id="editPreviewStatus" class="font-semibold text-orange-600">مدفوعة</div>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">📝 ملاحظات إضافية</label>
+        <textarea name="notes" class="form-input w-full text-sm" rows="2" id="editNotes"></textarea>
+      </div>
+      
+      <div class="flex justify-end gap-2 md:gap-3 pt-4 border-t">
+        <button type="button" onclick="hideModal('editExpenseModal')" class="btn-secondary text-sm">إلغاء</button>
+        <button type="submit" class="btn-success text-sm">حفظ التعديلات</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- مودال الفواتير -->
+<div id="receiptsModal" class="modal">
+  <div class="modal-content w-full max-w-4xl">
+    <div class="modal-header">
+      <h3 class="text-lg md:text-xl font-bold text-gray-900">🧾 فواتير المصروف</h3>
+      <button onclick="hideModal('receiptsModal')" class="modal-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="p-4 md:p-6" id="receiptsContent">
+      <!-- محتوى الفواتير -->
+    </div>
+  </div>
+</div>
+
+<!-- مودال الصورة -->
+<div id="imageModal" class="modal">
+  <div class="modal-content w-full max-w-4xl">
+    <div class="modal-header">
+      <h3 class="text-lg md:text-xl font-bold text-gray-900">معاينة الصورة</h3>
+      <button onclick="hideModal('imageModal')" class="modal-close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="p-4 text-center" id="imageContent">
+      <!-- محتوى الصورة -->
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================
+// 🔧 المتغيرات العامة
+// ========================
+let currentExpenseId = null;
+let categoryProducts = {};
+let searchTimeout;
+
+// ========================
+// 🎯 دوال الفلاتر المستقلة - محسنة
+// ========================
+function applyFilters() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        const paymentFilter = document.getElementById('paymentFilter').value;
+        const categoryFilter = document.getElementById('categoryFilter').value;
+        const productFilter = document.getElementById('productFilter').value;
+        const supplierFilter = document.getElementById('supplierFilter').value;
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        const searchText = document.getElementById('searchInput').value.toLowerCase().trim();
+        
+        const rows = document.querySelectorAll('.expense-row');
+        let visibleCount = 0;
+        
+        rows.forEach(row => {
+            let show = true;
+            
+            // فلتر حالة الدفع
+            if (paymentFilter !== 'all' && row.getAttribute('data-payment') !== paymentFilter) {
+                show = false;
+            }
+            
+            // فلتر التصنيف
+            if (categoryFilter !== 'all' && row.getAttribute('data-category') !== categoryFilter) {
+                show = false;
+            }
+            
+            // فلتر المنتج
+            if (productFilter !== 'all') {
+                const productName = row.getAttribute('data-product');
+                if (!productName.includes(productFilter.toLowerCase())) {
+                    show = false;
+                }
+            }
+            
+            // فلتر المورد
+            if (supplierFilter !== 'all' && row.getAttribute('data-supplier') !== supplierFilter) {
+                show = false;
+            }
+            
+            // فلتر التاريخ
+            if (dateFrom && row.getAttribute('data-date') < dateFrom) {
+                show = false;
+            }
+            if (dateTo && row.getAttribute('data-date') > dateTo) {
+                show = false;
+            }
+            
+            // البحث الفوري - محسن للعربية
+            if (searchText) {
+                const searchData = row.getAttribute('data-search').toLowerCase();
+                if (!searchData.includes(searchText)) {
+                    show = false;
+                }
+            }
+            
+            row.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
+        });
+        
+        // تحديث العداد
+        document.getElementById('visibleCount').textContent = visibleCount;
+    }, 300);
+}
+
+// ========================
+// 📦 دوال المنتجات والتصنيفات - محسنة
+// ========================
+async function loadCategoryProducts(categoryId, type) {
+    if (!categoryId) return;
+    
+    try {
+        if (categoryProducts[categoryId]) {
+            updateProductFilters(categoryProducts[categoryId], type);
+            return;
+        }
+        
+        const response = await fetch(`/api/category_products?category_id=${categoryId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            categoryProducts[categoryId] = data.products;
+            updateProductFilters(data.products, type);
+        }
+    } catch (error) {
+        console.error('Error loading category products:', error);
+        showAlert('خطأ في تحميل المنتجات', 'error');
+    }
+}
+
+function updateProductFilters(products, type) {
+    const productFilter = document.getElementById('productFilter');
+    productFilter.innerHTML = '<option value="all">جميع المنتجات</option>';
+    
+    products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.name.toLowerCase();
+        option.textContent = product.name;
+        productFilter.appendChild(option);
+    });
+    
+    updateProductSuggestions(products, type);
+}
+
+function updateProductSuggestions(products, type) {
+    const datalistId = type === 'quick' ? 'quickProductsList' : 'fullProductsList';
+    const datalist = document.getElementById(datalistId);
+    
+    datalist.innerHTML = '';
+    products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.name;
+        datalist.appendChild(option);
+    });
+}
+
+function showQuickProductSuggestions(value) {
+    showProductSuggestions(value, 'quick');
+}
+
+function showFullProductSuggestions(value) {
+    showProductSuggestions(value, 'full');
+}
+
+function showProductSuggestions(value, type) {
+    const suggestionsId = type === 'quick' ? 'quickProductSuggestions' : 'fullProductSuggestions';
+    const suggestionsDiv = document.getElementById(suggestionsId);
+    
+    if (!value.trim()) {
+        suggestionsDiv.classList.add('hidden');
+        return;
+    }
+    
+    const categorySelect = type === 'quick' ? 
+        document.querySelector('#quickAddModal select[name="category_id"]') :
+        document.getElementById('fullCategorySelect');
+    
+    const categoryId = categorySelect.value;
+    
+    if (!categoryId || !categoryProducts[categoryId]) {
+        suggestionsDiv.classList.add('hidden');
+        return;
+    }
+    
+    const filteredProducts = categoryProducts[categoryId].filter(product =>
+        product.name.toLowerCase().includes(value.toLowerCase())
+    );
+    
+    if (filteredProducts.length === 0) {
+        suggestionsDiv.classList.add('hidden');
+        return;
+    }
+    
+    let html = '';
+    filteredProducts.forEach(product => {
+        html += `
+            <div class="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 text-sm"
+                 onclick="selectProduct('${product.name.replace(/'/g, "\\'")}', '${type}')">
+                ${product.name}
+            </div>
+        `;
+    });
+    
+    html += `
+        <div class="p-2 hover:bg-green-50 cursor-pointer border-t border-gray-200 text-sm text-green-600 font-semibold"
+             onclick="addNewProduct('${value.replace(/'/g, "\\'")}', '${type}')">
+            + إضافة "${value}" كمنتج جديد
+        </div>
+    `;
+    
+    suggestionsDiv.innerHTML = html;
+    suggestionsDiv.classList.remove('hidden');
+}
+
+function selectProduct(productName, type) {
+    const inputId = type === 'quick' ? 'quickProductInput' : 'fullProductInput';
+    document.getElementById(inputId).value = productName;
+    
+    const suggestionsId = type === 'quick' ? 'quickProductSuggestions' : 'fullProductSuggestions';
+    document.getElementById(suggestionsId).classList.add('hidden');
+}
+
+async function addNewProduct(productName, type) {
+    const categorySelect = type === 'quick' ? 
+        document.querySelector('#quickAddModal select[name="category_id"]') :
+        document.getElementById('fullCategorySelect');
+    
+    const categoryId = categorySelect.value;
+    
+    if (!categoryId) {
+        showAlert('يرجى اختيار التصنيف أولاً', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/products/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: productName,
+                category_id: parseInt(categoryId)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            if (!categoryProducts[categoryId]) {
+                categoryProducts[categoryId] = [];
+            }
+            categoryProducts[categoryId].push({
+                id: data.product_id,
+                name: productName
+            });
+            
+            updateProductFilters(categoryProducts[categoryId], type);
+            selectProduct(productName, type);
+            
+            showAlert('تم إضافة المنتج بنجاح إلى التصنيف', 'success');
+        } else {
+            showAlert('خطأ في إضافة المنتج: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error adding product:', error);
+        showAlert('حدث خطأ أثناء إضافة المنتج', 'error');
+    }
+}
+
+// ========================
+// 💰 دوال إدارة الدفع للمصاريف - محسنة
+// ========================
+
+// للإضافة السريعة
+function toggleQuickPaymentFields() {
+    const paymentStatus = document.getElementById('quickPaymentStatus').value;
+    const paidAmountField = document.getElementById('quickPaidAmountField');
+    const remainingDisplay = document.getElementById('quickRemainingDisplay');
+    
+    if (paymentStatus === 'partial') {
+        paidAmountField.classList.remove('hidden');
+        remainingDisplay.classList.remove('hidden');
+        calculateQuickRemaining();
+    } else if (paymentStatus === 'unpaid') {
+        paidAmountField.classList.add('hidden');
+        remainingDisplay.classList.remove('hidden');
+        document.getElementById('quickPaidAmount').value = 0;
+        calculateQuickRemaining();
+    } else {
+        paidAmountField.classList.add('hidden');
+        remainingDisplay.classList.add('hidden');
+    }
+}
+
+function calculateQuickTotal() {
+    const amount = safeParseFloat(document.getElementById('quickAmount').value);
+    const quantity = safeParseInt(document.getElementById('quickQuantity').value);
+    return amount * quantity;
+}
+
+function calculateQuickRemaining() {
+    const total = calculateQuickTotal();
+    const paid = safeParseFloat(document.getElementById('quickPaidAmount').value);
+    const remaining = total - paid;
+    
+    document.getElementById('quickRemainingAmount').textContent = remaining.toFixed(2) + ' دج';
+    
+    const remainingElement = document.getElementById('quickRemainingAmount');
+    if (remaining <= 0) {
+        remainingElement.className = 'font-bold text-green-600';
+    } else {
+        remainingElement.className = 'font-bold text-yellow-600';
+    }
+}
+
+// للإضافة الكاملة
+function togglePaymentFields() {
+    const paymentStatus = document.getElementById('paymentStatus').value;
+    const previewStatus = document.getElementById('previewStatus');
+    
+    if (paymentStatus === 'paid') {
+        previewStatus.textContent = 'مدفوعة';
+        previewStatus.className = 'font-semibold text-green-600';
+    } else if (paymentStatus === 'unpaid') {
+        previewStatus.textContent = 'غير مدفوعة';
+        previewStatus.className = 'font-semibold text-red-600';
+    } else {
+        previewStatus.textContent = 'مدفوع جزئياً';
+        previewStatus.className = 'font-semibold text-orange-600';
+    }
+}
+
+function calculateTotal() {
+    const unitPrice = safeParseFloat(document.getElementById('unitPrice').value);
+    const quantity = safeParseInt(document.getElementById('quantity').value);
+    const total = unitPrice * quantity;
+    
+    document.getElementById('previewPrice').textContent = unitPrice.toFixed(2) + ' دج';
+    document.getElementById('previewQuantity').textContent = quantity;
+    document.getElementById('previewTotal').textContent = total.toFixed(2) + ' دج';
+    
+    togglePaymentFields();
+}
+
+// ========================
+// ✏️ دوال التعديل - محسنة
+// ========================
+async function editExpense(expenseId) {
+    try {
+        const response = await fetch(`/api/expenses/${expenseId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const expense = data.expense;
+            
+            document.getElementById('editExpenseId').value = expense.id;
+            document.getElementById('editCategoryId').value = expense.category_id;
+            document.getElementById('editDescription').value = expense.description;
+            document.getElementById('editUnitPrice').value = expense.unit_price;
+            document.getElementById('editQuantity').value = expense.quantity;
+            document.getElementById('editSupplierId').value = expense.supplier_id || '';
+            document.getElementById('editPurchaseDate').value = expense.purchase_date;
+            document.getElementById('editPaymentStatus').value = expense.payment_status;
+            document.getElementById('editPaymentMethod').value = expense.payment_method;
+            document.getElementById('editNotes').value = expense.notes || '';
+            
+            calculateEditTotal();
+            showModal('editExpenseModal');
+        } else {
+            showAlert('خطأ في تحميل بيانات المصروف', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading expense:', error);
+        showAlert('حدث خطأ أثناء تحميل البيانات', 'error');
+    }
+}
+
+function calculateEditTotal() {
+    const unitPrice = safeParseFloat(document.getElementById('editUnitPrice').value);
+    const quantity = safeParseInt(document.getElementById('editQuantity').value);
+    const total = unitPrice * quantity;
+    
+    document.getElementById('editPreviewPrice').textContent = unitPrice.toFixed(2) + ' دج';
+    document.getElementById('editPreviewQuantity').textContent = quantity;
+    document.getElementById('editPreviewTotal').textContent = total.toFixed(2) + ' دج';
+}
+
+// إرسال نموذج التعديل
+document.getElementById('editExpenseForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const expenseId = document.getElementById('editExpenseId').value;
+    
+    try {
+        const response = await fetch(`/expenses/edit/${expenseId}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('تم تعديل المصروف بنجاح', 'success');
+            hideModal('editExpenseModal');
+            location.reload();
+        } else {
+            showAlert('خطأ: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showAlert('حدث خطأ أثناء التعديل: ' + error, 'error');
+    }
+});
+
+// ========================
+// ⚡ دوال الإضافة السريعة - محسنة
+// ========================
+function quickCategoryAction(categoryId) {
+    const categorySelect = document.querySelector('#quickAddModal select[name="category_id"]');
+    categorySelect.value = categoryId;
+    loadCategoryProducts(categoryId, 'quick');
+    showModal('quickAddModal');
+}
+
+function onCategoryFilterChange() {
+    const categoryId = document.getElementById('categoryFilter').value;
+    if (categoryId !== 'all') {
+        loadCategoryProducts(categoryId, 'filter');
+    }
+    applyFilters();
+}
+
+// ========================
+// 🏢 دوال الموردين - محسنة
+// ========================
+function showAddSupplierModal(type) {
+    document.getElementById('supplierModalType').value = type;
+    showModal('addSupplierModal');
+}
+
+document.getElementById('supplierForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const modalType = document.getElementById('supplierModalType').value;
+    
+    try {
+        const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('تم إضافة المورد بنجاح', 'success');
+            hideModal('addSupplierModal');
+            location.reload();
+        } else {
+            showAlert('خطأ: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showAlert('حدث خطأ أثناء إضافة المورد', 'error');
+    }
+});
+
+// ========================
+// 📸 دوال الكاميرا والفواتير - محسنة
+// ========================
+function openCamera(type) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showAlert('الكاميرا غير مدعومة في هذا المتصفح', 'warning');
+        return;
+    }
+
+    const previewId = type === 'quick' ? 'quickReceiptPreview' : 'fullReceiptPreview';
+    const previewDiv = document.getElementById(previewId);
+    
+    const video = document.createElement('video');
+    video.style.width = '100%';
+    video.style.maxHeight = '300px';
+    video.autoplay = true;
+    video.playsInline = true;
+    
+    const captureBtn = document.createElement('button');
+    captureBtn.type = 'button';
+    captureBtn.className = 'btn-success mt-2 text-sm';
+    captureBtn.innerHTML = '<i class="fas fa-camera"></i> التقاط الصورة';
+    
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    
+    previewDiv.innerHTML = '';
+    previewDiv.appendChild(video);
+    previewDiv.appendChild(captureBtn);
+    previewDiv.classList.remove('hidden');
+    
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(stream => {
+            video.srcObject = stream;
+            
+            captureBtn.onclick = () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0);
+                
+                canvas.toBlob((blob) => {
+                    const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                    
+                    // حفظ الملف في المتغير المناسب
+                    if (type === 'quick') {
+                        window.quickCapturedFile = file;
+                    } else {
+                        window.fullCapturedFile = file;
+                    }
+                    
+                    // عرض المعاينة
+                    const imgPreview = document.createElement('img');
+                    imgPreview.src = URL.createObjectURL(blob);
+                    imgPreview.style.maxWidth = '100%';
+                    imgPreview.style.maxHeight = '200px';
+                    imgPreview.className = 'mt-2 border rounded';
+                    
+                    previewDiv.innerHTML = '';
+                    previewDiv.appendChild(imgPreview);
+                    
+                    // إيقاف الكاميرا
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // زر إعادة التصوير
+                    const retryBtn = document.createElement('button');
+                    retryBtn.type = 'button';
+                    retryBtn.className = 'btn-secondary mt-2 text-sm';
+                    retryBtn.innerHTML = '<i class="fas fa-redo"></i> إعادة التصوير';
+                    retryBtn.onclick = () => openCamera(type);
+                    previewDiv.appendChild(retryBtn);
+                    
+                }, 'image/jpeg', 0.8);
+            };
+        })
+        .catch(err => {
+            console.error('Error accessing camera:', err);
+            showAlert('تعذر الوصول إلى الكاميرا. يرجى التحقق من الأذونات.', 'error');
+            previewDiv.classList.add('hidden');
+        });
+}
+
+// معالجة رفع الملفات
+document.getElementById('quickReceipt')?.addEventListener('change', function(e) {
+    handleFileUpload(e, 'quick');
+});
+
+document.getElementById('fullReceipt')?.addEventListener('change', function(e) {
+    handleFileUpload(e, 'full');
+});
+
+function handleFileUpload(event, type) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // التحقق من نوع الملف
+    if (!file.type.startsWith('image/')) {
+        showAlert('يرجى اختيار ملف صورة فقط', 'warning');
+        return;
+    }
+    
+    // التحقق من حجم الملف (5MB كحد أقصى)
+    if (file.size > 5 * 1024 * 1024) {
+        showAlert('حجم الملف كبير جداً. الحد الأقصى 5MB', 'warning');
+        return;
+    }
+    
+    const previewId = type === 'quick' ? 'quickReceiptPreview' : 'fullReceiptPreview';
+    const previewDiv = document.getElementById(previewId);
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '200px';
+        img.className = 'mt-2 border rounded';
+        
+        previewDiv.innerHTML = '';
+        previewDiv.appendChild(img);
+        previewDiv.classList.remove('hidden');
+        
+        // حفظ الملف
+        if (type === 'quick') {
+            window.quickUploadedFile = file;
+        } else {
+            window.fullUploadedFile = file;
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+// معالجة إرسال النماذج
+function setupFormSubmission() {
+    const quickAddForm = document.querySelector('#quickAddModal form');
+    if (quickAddForm) {
+        quickAddForm.onsubmit = function(e) {
+            return handleFormSubmit(e, 'quick');
+        };
+    }
+    
+    const fullAddForm = document.querySelector('#addExpenseModal form');
+    if (fullAddForm) {
+        fullAddForm.onsubmit = function(e) {
+            return handleFormSubmit(e, 'full');
+        };
+    }
+}
+
+async function handleFormSubmit(e, type) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    // إضافة الملف الملتقط إذا كان موجوداً
+    const capturedFile = type === 'quick' ? window.quickCapturedFile : window.fullCapturedFile;
+    if (capturedFile) {
+        formData.append('receipt', capturedFile);
+    }
+    
+    // إضافة الملف المرفوع إذا كان موجوداً
+    const uploadedFile = type === 'quick' ? window.quickUploadedFile : window.fullUploadedFile;
+    if (uploadedFile && !capturedFile) {
+        formData.append('receipt', uploadedFile);
+    }
+    
+    try {
+        showLoading('جاري إضافة المصروف...');
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.redirected) {
+            window.location.href = response.url;
+        } else {
+            const data = await response.json();
+            if (data.success) {
+                showAlert('تم إضافة المصروف بنجاح', 'success');
+                hideModal(type === 'quick' ? 'quickAddModal' : 'addExpenseModal');
+                location.reload();
+            } else {
+                showAlert('خطأ: ' + data.error, 'error');
+            }
+        }
+    } catch (error) {
+        showAlert('حدث خطأ أثناء الإضافة: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+    
+    return false;
+}
+
+// ========================
+// 📸 دوال معاينة الفواتير للمصاريف - محسنة
+// ========================
+async function viewReceipts(expenseId, expenseDescription) {
+    try {
+        showLoading('جاري تحميل الفواتير...');
+        const response = await fetch(`/expenses/${expenseId}/receipts`);
+        const data = await response.json();
+        
+        if (data.success && data.receipts.length > 0) {
+            showExpenseReceiptsModal(data.receipts, expenseDescription, expenseId);
+        } else {
+            showAlert('لا توجد فواتير لهذا المصروف', 'info');
+        }
+    } catch (error) {
+        console.error('Error loading receipts:', error);
+        showAlert('حدث خطأ أثناء تحميل الفواتير', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function showExpenseReceiptsModal(receipts, expenseDescription, expenseId) {
+    let modalContent = `
+        <div class="space-y-4">
+            <h4 class="text-lg font-semibold text-gray-900">فواتير: ${expenseDescription}</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+    `;
+    
+    receipts.forEach((receipt, index) => {
+        modalContent += `
+            <div class="border rounded-lg p-3 bg-gray-50">
+                <div class="text-center mb-2">
+                    <img src="/receipts/${receipt.id}" 
+                         alt="${receipt.original_filename}"
+                         class="max-w-full h-32 object-contain mx-auto cursor-pointer hover:opacity-80 transition-opacity"
+                         onclick="openImageModal('/receipts/${receipt.id}')">
+                </div>
+                <div class="text-xs text-gray-600 space-y-1">
+                    <p><strong>الاسم:</strong> ${receipt.original_filename}</p>
+                    <p><strong>الحجم:</strong> ${(receipt.file_size / 1024).toFixed(1)} ك.بايت</p>
+                    <p><strong>التاريخ:</strong> ${receipt.captured_at}</p>
+                    <p><strong>بواسطة:</strong> ${receipt.captured_by}</p>
+                </div>
+                <button onclick="deleteExpenseReceipt(${receipt.id}, ${expenseId})" 
+                        class="mt-2 w-full bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded text-xs transition-colors">
+                    <i class="fas fa-trash ml-1"></i> حذف الفاتورة
+                </button>
+            </div>
+        `;
+    });
+    
+    modalContent += `
+            </div>
+            
+            <div class="border-t pt-4 mt-4">
+                <form id="uploadExpenseReceiptForm" class="space-y-4">
+                    <input type="hidden" name="expense_id" value="${expenseId}">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">📸 رفع فاتورة جديدة</label>
+                        <div class="flex gap-2">
+                            <input type="file" name="receipt" accept="image/*" class="hidden" id="newExpenseReceipt">
+                            <button type="button" onclick="document.getElementById('newExpenseReceipt').click()" class="btn-secondary flex-1 text-sm">
+                                <i class="fas fa-upload"></i> رفع صورة
+                            </button>
+                            <button type="button" onclick="openCamera('expense')" class="btn-warning flex-1 text-sm">
+                                <i class="fas fa-camera"></i> تصوير
+                            </button>
+                        </div>
+                        <div id="newExpenseReceiptPreview" class="mt-2 hidden"></div>
+                    </div>
+                    <button type="submit" class="btn-primary w-full">
+                        <i class="fas fa-upload ml-2"></i>
+                        رفع الفاتورة
+                    </button>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('receiptsContent').innerHTML = modalContent;
+    
+    // إعداد النموذج
+    document.getElementById('newExpenseReceipt').addEventListener('change', function(e) {
+        handleNewExpenseReceiptUpload(e);
+    });
+    
+    document.getElementById('uploadExpenseReceiptForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        uploadNewExpenseReceipt(expenseId);
+    });
+    
+    showModal('receiptsModal');
+}
+
+async function deleteExpenseReceipt(receiptId, expenseId) {
+    if (!confirm('⚠️ هل أنت متأكد من حذف هذه الفاتورة؟ لا يمكن التراجع عن هذا الإجراء.')) {
+        return;
+    }
+    
+    try {
+        showLoading('جاري حذف الفاتورة...');
+        const response = await fetch(`/receipts/${receiptId}/delete`, {
+            method: 'DELETE'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('تم حذف الفاتورة بنجاح', 'success');
+            viewReceipts(expenseId, '');
+        } else {
+            showAlert('خطأ في حذف الفاتورة: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting receipt:', error);
+        showAlert('حدث خطأ أثناء حذف الفاتورة', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function handleNewExpenseReceiptUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        showAlert('يرجى اختيار ملف صورة فقط', 'warning');
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+        showAlert('حجم الملف كبير جداً. الحد الأقصى 5MB', 'warning');
+        return;
+    }
+    
+    const previewDiv = document.getElementById('newExpenseReceiptPreview');
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '200px';
+        img.className = 'mt-2 border rounded';
+        
+        previewDiv.innerHTML = '';
+        previewDiv.appendChild(img);
+        previewDiv.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+}
+
+async function uploadNewExpenseReceipt(expenseId) {
+    const fileInput = document.getElementById('newExpenseReceipt');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showAlert('يرجى اختيار ملف أولاً', 'warning');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('receipt', file);
+    
+    try {
+        showLoading('جاري رفع الفاتورة...');
+        const response = await fetch(`/expenses/${expenseId}/receipts/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('تم رفع الفاتورة بنجاح', 'success');
+            viewReceipts(expenseId, '');
+        } else {
+            showAlert('خطأ في رفع الفاتورة: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error uploading receipt:', error);
+        showAlert('حدث خطأ أثناء رفع الفاتورة', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function openImageModal(imageUrl) {
+    document.getElementById('imageContent').innerHTML = `
+        <img src="${imageUrl}" alt="معاينة الصورة" class="max-w-full max-h-96 mx-auto rounded-lg shadow-lg">
+        <div class="mt-4">
+            <button onclick="hideModal('imageModal')" class="btn-secondary text-sm">
+                <i class="fas fa-times ml-1"></i> إغلاق
+            </button>
+        </div>
+    `;
+    showModal('imageModal');
+}
+
+// ========================
+// 🗑️ دوال حذف المصروفات - محسنة
+// ========================
+async function confirmDeleteExpense(expenseId) {
+    if (!confirm('⚠️ هل أنت متأكد من حذف هذا المصروف؟ لا يمكن التراجع عن هذا الإجراء.')) {
+        return;
+    }
+    
+    try {
+        showLoading('جاري حذف المصروف...');
+        const response = await fetch(`/expenses/delete/${expenseId}`);
+        
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('✅ تم حذف المصروف بنجاح', 'success');
+            location.reload();
+        } else {
+            showAlert('❌ خطأ في الحذف: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting expense:', error);
+        showAlert('❌ حدث خطأ أثناء حذف المصروف', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// ========================
+// 🔧 دوال مساعدة - محسنة
+// ========================
+function safeParseFloat(value) {
+    if (!value || value === '' || isNaN(value)) return 0;
+    return parseFloat(value);
+}
+
+function safeParseInt(value) {
+    if (!value || value === '' || isNaN(value)) return 1;
+    return parseInt(value);
+}
+
+function showAlert(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg text-white ${
+        type === 'success' ? 'bg-green-500' :
+        type === 'error' ? 'bg-red-500' :
+        type === 'warning' ? 'bg-yellow-500' :
+        'bg-blue-500'
+    }`;
+    alertDiv.innerHTML = `
+        <div class="flex items-center gap-2">
+            <i class="fas ${
+                type === 'success' ? 'fa-check-circle' :
+                type === 'error' ? 'fa-exclamation-circle' :
+                type === 'warning' ? 'fa-exclamation-triangle' :
+                'fa-info-circle'
+            }"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+function showLoading(message = 'جاري المعالجة...') {
+    let loadingDiv = document.getElementById('loadingDiv');
+    if (!loadingDiv) {
+        loadingDiv = document.createElement('div');
+        loadingDiv.id = 'loadingDiv';
+        loadingDiv.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        loadingDiv.innerHTML = `
+            <div class="bg-white p-6 rounded-lg shadow-lg text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                <p class="text-gray-700">${message}</p>
+            </div>
+        `;
+        document.body.appendChild(loadingDiv);
+    }
+}
+
+function hideLoading() {
+    const loadingDiv = document.getElementById('loadingDiv');
+    if (loadingDiv) {
+        loadingDiv.remove();
+    }
+}
+
+// ========================
+// 🎯 دوال المودال العامة - محسنة
+// ========================
+function showModal(modalId) {
+    document.getElementById(modalId).classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function hideModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+    document.body.style.overflow = 'auto';
+}
+
+// ========================
+// 📱 التهيئة - محسنة
+// ========================
+document.addEventListener('DOMContentLoaded', function() {
+    // تعيين تاريخ اليوم
+    const today = new Date().toISOString().split('T')[0];
+    const dateInputs = document.querySelectorAll('input[type="date"]');
+    dateInputs.forEach(input => {
+        if (!input.value) {
+            input.value = today;
+        }
+    });
+    
+    // تعيين القيم الافتراضية للحقول العددية
+    const numberInputs = document.querySelectorAll('input[type="number"]');
+    numberInputs.forEach(input => {
+        if (!input.value || input.value === '') {
+            input.value = '0';
+        }
+    });
+    
+    // إعداد المستمعين
+    setupFormSubmission();
+    
+    // إخفاء اقتراحات المنتجات عند النقر خارجها
+    document.addEventListener('click', function(e) {
+        if (!e.target.matches('#quickProductInput, #fullProductInput')) {
+            document.getElementById('quickProductSuggestions').classList.add('hidden');
+            document.getElementById('fullProductSuggestions').classList.add('hidden');
+        }
+    });
+    
+    // تهيئة الحقول
+    toggleQuickPaymentFields();
+    togglePaymentFields();
+    calculateTotal();
+    
+    console.log('✅ نظام المصاريف جاهز للعمل');
+});
+
+// إغلاق المودال عند النقر خارج المحتوى
+document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal')) {
+        hideModal(event.target.id);
+    }
+});
+
+// إغلاق المودال بالزر Escape
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        document.querySelectorAll('.modal.active').forEach(modal => {
+            hideModal(modal.id);
+        });
+    }
+});
+
+// منع إغلاق المودال عند النقر داخل المحتوى
+document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal-content')) {
+        event.stopPropagation();
+    }
+});
+</script>
+
+<style>
+/* تنسيقات البادجات */
+.badge {
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.badge-success { background: #dcfce7; color: #166534; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+
+/* أزرار التصنيفات */
+.category-btn {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.category-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* تحسين التجاوب */
+@media (max-width: 768px) {
+    .table-container {
+        font-size: 0.75rem;
+    }
+    
+    .modal-content {
+        margin: 10px;
+        width: calc(100% - 20px);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .card {
+        padding: 12px;
+    }
+    
+    .btn-primary, .btn-success, .btn-secondary {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+    
+    .grid-cols-8 {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    
+    .category-btn {
+        padding: 8px 4px;
+    }
+    
+    .category-btn .text-lg {
+        font-size: 1rem;
+    }
+    
+    .category-btn .text-xs {
+        font-size: 0.6rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .grid-cols-8 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .flex-col {
+        flex-direction: column;
+    }
+    
+    .pagination {
+        flex-wrap: wrap;
+        gap: 2px;
+    }
+    
+    .page-item {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+    }
+    
+    .table-container table {
+        min-width: 600px;
+    }
+}
+
+/* تحسينات للشاشات الكبيرة */
+@media (min-width: 1536px) {
+    .max-w-7xl {
+        max-width: 1280px;
+    }
+}
+
+/* تحسينات للفواتير */
+.receipt-image {
+    max-width: 100%;
+    max-height: 200px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    transition: transform 0.3s ease;
+}
+
+.receipt-image:hover {
+    transform: scale(1.05);
+}
+
+/* تحسينات للزر الحذف */
+.btn-delete {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-delete:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+}
+
+/* تحسينات للصور في المودال */
+.modal-image {
+    max-width: 90vw;
+    max-height: 80vh;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* تحسينات للبحث */
+#searchInput:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* تحسينات للجدول */
+.table-container {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.table-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.text-2xs {
+  font-size: 0.65rem;
+  line-height: 0.9rem;
+}
+
+.h-2 {
+  height: 0.5rem;
+}
+
+/* تحسينات للوضع الداكن */
+@media (prefers-color-scheme: dark) {
+    .table-container::-webkit-scrollbar-track {
+        background: #374151;
+    }
+    
+    .table-container::-webkit-scrollbar-thumb {
+        background: #6b7280;
+    }
+}
+
+/* تحسينات للوصول */
+@media (prefers-reduced-motion: reduce) {
+    .transition-colors, .transition-all, .transition-transform {
+        transition: none;
+    }
+}
+
+/* تحسينات للتركيز */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+</style>
+{% endblock %}

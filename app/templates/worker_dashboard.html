@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- رأس لوحة العمال -->
+    <div class="mb-8">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div class="flex items-center space-x-4 space-x-reverse">
+                <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <i class="fas fa-hard-hat text-2xl text-blue-600 dark:text-blue-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">👷 لوحة تحكم العامل</h1>
+                    <p class="text-gray-600 dark:text-gray-300 mt-2">
+                        مرحباً {{ user.name }} - هذه واجهتك المخصصة للمهام اليومية
+                    </p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        رقم الهاتف: {{ user.phone }}
+                    </p>
+                </div>
+            </div>
+            <div class="mt-4 md:mt-0 flex items-center space-x-3 space-x-reverse">
+                <div class="text-right">
+                    <div class="text-sm text-gray-600 dark:text-gray-400">المهام النشطة</div>
+                    <div class="text-2xl font-bold text-blue-600">{{ worker_tasks|length }}</div>
+                </div>
+                <button onclick="refreshWorkerTasks()" class="btn-secondary flex items-center gap-2">
+                    <i class="fas fa-sync-alt"></i>
+                    تحديث
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة للعامل -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4 text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ worker_tasks|length }}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">المهام النشطة</div>
+        </div>
+        <div class="card p-4 text-center">
+            <div class="text-2xl font-bold text-orange-600">
+                {{ worker_tasks|selectattr('priority', 'equalto', 'high')|list|length + 
+                   worker_tasks|selectattr('priority', 'equalto', 'critical')|list|length }}
+            </div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">مهام عاجلة</div>
+        </div>
+        <div class="card p-4 text-center">
+            <div class="text-2xl font-bold text-green-600">{{ completed_tasks|length }}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">مكتملة حديثاً</div>
+        </div>
+        <div class="card p-4 text-center">
+            <div class="text-2xl font-bold text-purple-600">
+                {{ worker_tasks|selectattr('is_overdue', 'equalto', true)|list|length }}
+            </div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">متأخرة</div>
+        </div>
+    </div>
+
+    <!-- المهام النشطة -->
+    <div class="card p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">📋 المهام الموكلة إلي</h2>
+            <div class="flex items-center space-x-2 space-x-reverse">
+                <span class="text-sm text-gray-600 dark:text-gray-400">أولوية:</span>
+                <select id="priority-filter" onchange="filterWorkerTasks()" class="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700">
+                    <option value="all">الكل</option>
+                    <option value="critical,high">عاجلة</option>
+                    <option value="medium">متوسطة</option>
+                    <option value="low">منخفضة</option>
+                </select>
+            </div>
+        </div>
+
+        {% if worker_tasks %}
+        <div class="space-y-4">
+            {% for task in worker_tasks %}
+            <div class="task-card border rounded-lg p-4 hover:shadow-md transition-shadow
+                {% if task.priority == 'critical' %}border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20
+                {% elif task.priority == 'high' %}border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20
+                {% else %}border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20{% endif %}">
+                
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 space-x-reverse mb-2">
+                            <h3 class="font-semibold text-gray-900 dark:text-white text-lg">{{ task.title }}</h3>
+                            <span class="px-2 py-1 rounded-full text-xs font-medium 
+                                {% if task.priority == 'critical' %}bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100
+                                {% elif task.priority == 'high' %}bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100
+                                {% else %}bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100{% endif %}">
+                                {{ 'حرجة' if task.priority == 'critical' else 'عالية' if task.priority == 'high' else 'متوسطة' if task.priority == 'medium' else 'منخفضة' }}
+                            </span>
+                        </div>
+                        
+                        {% if task.description %}
+                        <p class="text-gray-600 dark:text-gray-400 mb-3">{{ task.description }}</p>
+                        {% endif %}
+                        
+                        <div class="flex flex-wrap items-center space-x-4 space-x-reverse text-sm text-gray-500 dark:text-gray-400">
+                            {% if task.due_date %}
+                            <span class="flex items-center {% if task.is_overdue %}text-red-600 font-medium{% endif %}">
+                                <i class="fas fa-calendar ml-1"></i>
+                                {% if task.is_overdue %}تأخرت: {% endif %}
+                                {{ task.due_date.strftime('%Y-%m-%d') }}
+                            </span>
+                            {% endif %}
+                            
+                            <span class="flex items-center">
+                                <i class="fas fa-clock ml-1"></i>
+                                {{ task.created_at.strftime('%Y-%m-%d') }}
+                            </span>
+                            
+                            {% if task.task_type != 'general' %}
+                            <span class="flex items-center">
+                                <i class="fas fa-tag ml-1"></i>
+                                {{ 'طلبية' if task.task_type == 'order' else 'مصاريف' if task.task_type == 'expense' else 'عام' }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2 space-x-reverse ml-4">
+                        {% if task.status == 'pending' %}
+                        <button onclick="startWorkerTask({{ task.id }})" 
+                                class="btn-primary text-sm px-3 py-1 flex items-center gap-1">
+                            <i class="fas fa-play"></i>
+                            بدء
+                        </button>
+                        {% elif task.status == 'in_progress' %}
+                        <button onclick="completeWorkerTask({{ task.id }})" 
+                                class="btn-success text-sm px-3 py-1 flex items-center gap-1">
+                            <i class="fas fa-check"></i>
+                            إنهاء
+                        </button>
+                        {% endif %}
+                        
+                        <span class="px-2 py-1 rounded-full text-xs font-medium 
+                            {% if task.status == 'completed' %}bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100
+                            {% elif task.status == 'in_progress' %}bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100
+                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ 'مكتملة' if task.status == 'completed' else 'قيد التنفيذ' if task.status == 'in_progress' else 'قيد الانتظار' }}
+                        </span>
+                    </div>
+                </div>
+                
+                {% if task.notes %}
+                <div class="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
+                    <div class="flex items-start">
+                        <i class="fas fa-sticky-note text-yellow-600 mt-1 ml-2"></i>
+                        <p class="text-sm text-yellow-800 dark:text-yellow-200">{{ task.notes }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <i class="fas fa-tasks text-4xl text-gray-400 mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">لا توجد مهام حالياً</h3>
+            <p class="text-gray-600 dark:text-gray-400">لا توجد مهام مخصصة لك في الوقت الحالي</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- المهام المكتملة حديثاً -->
+    {% if completed_tasks %}
+    <div class="card p-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">✅ المهام المكتملة حديثاً</h2>
+        <div class="space-y-3">
+            {% for task in completed_tasks %}
+            <div class="flex items-center justify-between p-3 border border-green-200 dark:border-green-800 rounded-lg bg-green-50 dark:bg-green-900/20">
+                <div class="flex-1">
+                    <h4 class="font-medium text-gray-900 dark:text-white line-through">{{ task.title }}</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">تم الإكمال: {{ task.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                </div>
+                <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
+                    مكتملة
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- نموذج تحديث حالة المهمة -->
+<div id="status-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md mx-4 p-6">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4" id="status-modal-title">تحديث حالة المهمة</h3>
+        
+        <form id="status-form">
+            <input type="hidden" id="status-task-id">
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ملاحظات (اختياري)</label>
+                <textarea id="status-notes" rows="3" 
+                          class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          placeholder="أضف ملاحظات عن سير العمل..."></textarea>
+            </div>
+            
+            <div class="flex justify-end space-x-3 space-x-reverse">
+                <button type="button" onclick="hideStatusModal()" class="btn-secondary">إلغاء</button>
+                <button type="submit" class="btn-primary" id="status-submit-btn">تأكيد</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// ========================
+// 🎯 دوال لوحة العمال
+// ========================
+
+let currentTaskAction = '';
+
+// فلترة المهام حسب الأولوية
+function filterWorkerTasks() {
+    const priority = document.getElementById('priority-filter').value;
+    const taskCards = document.querySelectorAll('.task-card');
+    
+    taskCards.forEach(card => {
+        const priorityText = card.querySelector('.font-medium').textContent;
+        let shouldShow = true;
+        
+        if (priority !== 'all') {
+            if (priority === 'critical,high') {
+                shouldShow = priorityText.includes('حرجة') || priorityText.includes('عالية');
+            } else if (priority === 'medium') {
+                shouldShow = priorityText.includes('متوسطة');
+            } else if (priority === 'low') {
+                shouldShow = priorityText.includes('منخفضة');
+            }
+        }
+        
+        card.style.display = shouldShow ? 'block' : 'none';
+    });
+}
+
+// بدء تنفيذ مهمة
+function startWorkerTask(taskId) {
+    currentTaskAction = 'start';
+    document.getElementById('status-task-id').value = taskId;
+    document.getElementById('status-modal-title').textContent = 'بدء تنفيذ المهمة';
+    document.getElementById('status-submit-btn').textContent = 'بدء التنفيذ';
+    document.getElementById('status-notes').placeholder = 'ملاحظات قبل البدء...';
+    document.getElementById('status-modal').classList.remove('hidden');
+}
+
+// إنهاء مهمة
+function completeWorkerTask(taskId) {
+    currentTaskAction = 'complete';
+    document.getElementById('status-task-id').value = taskId;
+    document.getElementById('status-modal-title').textContent = 'إنهاء المهمة';
+    document.getElementById('status-submit-btn').textContent = 'تأكيد الإنهاء';
+    document.getElementById('status-notes').placeholder = 'ملاحظات عن سير العمل...';
+    document.getElementById('status-modal').classList.remove('hidden');
+}
+
+// إدارة النماذج
+function hideStatusModal() {
+    document.getElementById('status-modal').classList.add('hidden');
+    document.getElementById('status-form').reset();
+    currentTaskAction = '';
+}
+
+// تقديم تحديث الحالة
+document.getElementById('status-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const taskId = document.getElementById('status-task-id').value;
+    const notes = document.getElementById('status-notes').value;
+    
+    try {
+        let url, method, body;
+        
+        if (currentTaskAction === 'start') {
+            url = `/api/tasks/${taskId}/status`;
+            method = 'PUT';
+            body = JSON.stringify({ 
+                status: 'in_progress',
+                notes: notes 
+            });
+        } else {
+            url = `/api/tasks/complete/${taskId}`;
+            method = 'POST';
+            body = new URLSearchParams({
+                notes: notes
+            });
+        }
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': currentTaskAction === 'start' ? 'application/json' : 'application/x-www-form-urlencoded',
+            },
+            body: body
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(
+                currentTaskAction === 'start' ? 'تم بدء تنفيذ المهمة' : 'تم إنهاء المهمة بنجاح', 
+                'success'
+            );
+            hideStatusModal();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (error) {
+        showToast('حدث خطأ أثناء تحديث المهمة', 'error');
+    }
+});
+
+// تحديث الصفحة
+function refreshWorkerTasks() {
+    window.location.reload();
+}
+
+// دوال مساعدة للإشعارات
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg text-white max-w-sm transform transition-transform duration-300 ${
+        type === 'success' ? 'bg-green-500' :
+        type === 'error' ? 'bg-red-500' :
+        'bg-blue-500'
+    }`;
+    
+    toast.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'} ml-2"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('translate-x-0');
+    }, 100);
+    
+    setTimeout(() => {
+        toast.classList.remove('translate-x-0');
+        toast.classList.add('translate-x-full');
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
+}
+
+// التهيئة
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('لوحة العمال جاهزة - مرحباً!');
+});
+</script>
+
+<style>
+.task-card {
+    transition: all 0.3s ease;
+}
+
+.task-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.line-through {
+    text-decoration: line-through;
+}
+
+/* تحسينات للجوال */
+@media (max-width: 768px) {
+    .task-card > div {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .task-card > div > div:last-child {
+        margin-top: 10px;
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+</style>
+{% endblock %}
